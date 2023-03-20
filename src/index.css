@@ -1,0 +1,65 @@
+.App {
+    background: #eeeeee;
+    min-height: 100vh;
+    min-width: 100%;
+}
+
+.button {
+    display: block;
+    width: 100%;
+    background: #dddddd;
+    border: #c7c7c7 solid 1px;
+    border-radius: 4px;
+    font-size: 14px;
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    text-align: center;
+    text-anchor: middle;
+    flex: 1;
+    align-items: center;
+    justify-items: center;
+}
+
+.button:hover {
+    background: #cacaca;
+    border: #919191 solid 1px;
+}
+
+p {
+    font-size: 14px;
+    margin: 0;
+}
+
+p {
+    width: fit-content;
+}
+
+.button-text {
+    text-align: center;
+    width: 100%;
+}
+
+.display-label-container {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+}
+
+.top-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 10px;
+}
+
+.top-row > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.bottom-row {
+    background: white;
+}
