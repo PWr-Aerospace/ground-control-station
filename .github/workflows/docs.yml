@@ -25,4 +25,4 @@ jobs:
                 key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
             - uses: actions/checkout@v2
             - name: Build docs
-              run: cargo doc --verbose
+              run: cd src-tauri/ ; cargo doc --verbose

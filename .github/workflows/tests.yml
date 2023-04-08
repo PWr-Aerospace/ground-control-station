@@ -33,5 +33,5 @@ jobs:
                 key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
             - uses: actions/checkout@v2
             - name: Run tests
-              run: cargo test --verbose
+              run: cd src-tauri/ ; cargo test --verbose
 

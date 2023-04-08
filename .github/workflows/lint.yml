@@ -28,4 +28,4 @@ jobs:
               run: |
                   rustup component add clippy
                   set env RUSTFLAGS="-Dwarnings"
-                  cargo clippy --workspace -- -D warnings
+                  cd src-tauri/ ; cargo clippy --workspace -- -D warnings
