@@ -11,3 +11,80 @@ code {
     font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
         monospace;
 }
+
+.App {
+    position: relative;
+    padding-bottom: 64px;
+}
+
+.tab-buttons {
+    display: flex;
+    flex-direction: row;
+    list-style-type: none;
+    padding: 0;
+    margin-bottom: 16px;
+}
+
+.tab-button {
+    display: block;
+    background-color: #dddddd;
+    border: #c7c7c7 solid 1px;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 4px;
+    padding: 6px 16px;
+    margin-right: 8px;
+    font-weight: bold;
+    margin-left: 8px;
+}
+
+.tab-button:last-child {
+    margin-right: 0;
+}
+
+.tab-button:hover {
+    background: #cacaca;
+    border: #919191 solid 1px;
+}
+
+.tab-button:focus {
+    outline: none;
+}
+
+.react-tabs__tab-list {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    padding: 0;
+}
+.bottom-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.top-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+.tab-button.react-tabs__tab--selected {
+    color: #007aff;
+    border-bottom: 2px solid #007aff;
+}
+
+.plot-container {
+    position: relative;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    margin: 50px auto 0;
+    bottom: 0;
+}

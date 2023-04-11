@@ -3,6 +3,7 @@ import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import "./index.css";
 import Chart from "react-apexcharts";
 import { Tab, Tabs, TabList, TabPanel } from "react-tabs";
+import "./styles.css";
 
 interface DisplayLabelProps {
     title: string;
@@ -54,7 +55,6 @@ function App() {
             data: graphData,
         },
     ];
-
     return (
         <div className="App">
             <div className="top-row">
@@ -89,7 +89,7 @@ function App() {
                     <Button text="Stop and Save CSV" />
                     <Button text="Load CSV" />
                 </div>
-                {/*Fourth Column */}
+                {/* Fourth Column */}
                 <div>
                     <Button text="Stop and Save CSV" />
                     <Button text="Simulation Enable" />
@@ -99,53 +99,112 @@ function App() {
                 </div>
             </div>
             <div className="bottom-row">
-                <Chart
-                    options={{
-                        chart: {
-                            id: "john-chart",
-                            toolbar: {
-                                show: false,
-                            },
-                        },
-                        xaxis: {
-                            title: {
-                                text: "Time [s]",
-                            },
-                            type: "numeric",
-                        },
-                        yaxis: { title: { text: "Voltage [V]" } },
-                        title: {
-                            text: "Example Voltage",
-                            align: "center",
-                            style: {
-                                fontSize: "20px",
-                                fontWeight: "bold",
-                            },
-                        },
-                        colors: ["#ff0000"],
-                        stroke: {
-                            width: 1,
-                            curve: "straight",
-                        },
-                        markers: {
-                            size: 4,
-                            shape: "circle",
-                        },
-                        legend: {
-                            show: true,
-                            position: "top",
-                            horizontalAlign: "right",
-                            labels: {
-                                colors: "#fff",
-                            },
-                        },
-                    }}
-                    series={series}
-                    type="line"
-                    width={500}
-                />
+                <Tabs className="tab-buttons">
+                    <TabList>
+                        <Tab className="tab-button">Plot 1</Tab>
+                        <Tab className="tab-button">Plot 2</Tab>
+                        <Tab className="tab-button">Plot 3</Tab>
+                    </TabList>
+
+                    <TabPanel className="plot-container">
+                        <Chart
+                            options={{
+                                chart: {
+                                    id: "john-chart",
+                                    toolbar: {
+                                        show: false,
+                                    },
+                                },
+                                xaxis: {
+                                    title: {
+                                        text: "Time [s]",
+                                    },
+                                    type: "numeric",
+                                },
+                                yaxis: { title: { text: "Voltage [V]" } },
+                                title: {
+                                    text: "Example Voltage",
+                                    align: "center",
+                                    style: {
+                                        fontSize: "20px",
+                                        fontWeight: "bold",
+                                    },
+                                },
+                                colors: ["#ff0000"],
+                                stroke: {
+                                    width: 1,
+                                    curve: "straight",
+                                },
+                                markers: {
+                                    size: 4,
+                                    shape: "circle",
+                                },
+                                legend: {
+                                    show: true,
+                                    position: "top",
+                                    horizontalAlign: "right",
+                                    labels: {
+                                        colors: "#fff",
+                                    },
+                                },
+                            }}
+                            series={series}
+                            type="line"
+                            width={500}
+                        />
+                    </TabPanel>
+                    <TabPanel className="plot-container">
+
+                        <Chart
+                            options={{
+                                chart: {
+                                    id: "john-chart",
+                                    toolbar: {
+                                        show: false,
+                                    },
+                                },
+                                xaxis: {
+                                    title: {
+                                        text: "Time [s]",
+                                    },
+                                    type: "numeric",
+                                },
+                                yaxis: { title: { text: "Voltage [V]" } },
+                                title: {
+                                    text: "Example Voltage",
+                                    align: "center",
+                                    style: {
+                                        fontSize: "20px",
+                                        fontWeight: "bold",
+                                    },
+                                },
+                                colors: ["#ff0000"],
+                                stroke: {
+                                    width: 1,
+                                    curve: "straight",
+                                },
+                                markers: {
+                                    size: 4,
+                                    shape: "circle",
+                                },
+                                legend: {
+                                    show: true,
+                                    position: "top",
+                                    horizontalAlign: "right",
+                                    labels: {
+                                        colors: "#fff",
+                                    },
+                                },
+                            }}
+                            series={series}
+                            type="line"
+                            width={500}
+                        />
+                    </TabPanel>
+
+                </Tabs>
             </div>
-        </div>
+        </div >
     );
 }
 
