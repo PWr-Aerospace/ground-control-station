@@ -17,7 +17,12 @@ tauri = { version = "1.2", features = ["shell-open"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 rand = "0.8.5"
-serialport = "4.2.0"
+serialport = "4.0"
+tokio = { version = "1.0", features = ["full"] }
+libusb = "0.3"
+tokio-serial = "5.4.4"
+csv = "1.1"
+bytes = "1.0"
 
 [features]
 # this feature is used for production builds or when `devPath` points to the filesystem
