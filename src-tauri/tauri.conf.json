@@ -40,7 +40,7 @@
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "ground-control-station",
+        "title": "Ground Control Station",
         "width": 800,
         "height": 600
       }
