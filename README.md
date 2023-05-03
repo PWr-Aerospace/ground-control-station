@@ -7,9 +7,51 @@
 
 CanSat Ground Control Station.
 
-## Features
+## Development
 
-* TODO
+In order to locally run development versions and build your own follow these steps to setup your local environment:
+
+1. Install rust following instructions on the official web page: <https://www.rust-lang.org/tools/install>
+2. Install `node` and `npm`, node has to be at least version 16
+3. Install the `tauri` project management plugin for `cargo` (this will take a while):
+
+    ```bash
+    cargo install tauri-cli
+    ```
+
+4. Install the local JS server `vite` using npm
+
+    ```bash
+    npm install vite
+    ```
+
+5. If you are on `Ubuntu` install these packages using `apt`:
+
+    ```bash
+    sudo apt-get update ; sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libudev-dev
+    ```
+
+6. Now you should be capable of building the application. Navigate to the root
+of the cloned repository and run:
+
+    For a development build:
+
+    ```bash
+    cargo tauri dev
+    ```
+
+    For release build (that will create an installer for your operating system):
+
+    ```bash
+    cargo tauri release
+    ```
+
+7. If your build failed saying that tsc is not a known command you have to explicitly
+    install typescript by running:
+
+    ```bash
+    npm install -g typescript
+    ```
 
 ## Credits
 

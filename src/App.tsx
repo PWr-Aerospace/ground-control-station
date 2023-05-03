@@ -136,8 +136,7 @@ function App() {
                                     curve: "straight",
                                 },
                                 markers: {
-                                    size: 4,
-                                    shape: "circle",
+                                    size: 0,
                                 },
                                 legend: {
                                     show: true,
@@ -169,9 +168,9 @@ function App() {
                                     },
                                     type: "numeric",
                                 },
-                                yaxis: { title: { text: "Voltage [V]" } },
+                                yaxis: { title: { text: "Altitude [m]" } },
                                 title: {
-                                    text: "Example Voltage",
+                                    text: "Example Altitude",
                                     align: "center",
                                     style: {
                                         fontSize: "20px",
@@ -184,8 +183,7 @@ function App() {
                                     curve: "straight",
                                 },
                                 markers: {
-                                    size: 4,
-                                    shape: "circle",
+                                    size: 0,
                                 },
                                 legend: {
                                     show: true,

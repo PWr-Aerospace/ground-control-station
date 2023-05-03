@@ -1,4 +1,3 @@
-
 name: 📦 Package
 
 on:
@@ -55,3 +54,15 @@ jobs:
                   sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf
             - name: Check package integrity
               run: cd src-tauri/ ; cargo package --verbose
+    check_unused_deps:
+        name: 📦 Check for unused dependencies
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: stable
+                  override: true
+            - uses: davidB/rust-cargo-make@v1
+            - name: Dependency audit
+              run: cd src-tauri/ ; cargo make deps

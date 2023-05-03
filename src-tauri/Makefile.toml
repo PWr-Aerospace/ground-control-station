@@ -1,5 +1,5 @@
 [tasks.all]
-dependencies = ["format", "build", "clippy", "test", "doc"]
+dependencies = ["format", "build", "clippy", "test", "doc", "deps"]
 
 [tasks.format]
 install_crate = "rustfmt"
@@ -28,14 +28,16 @@ dependencies = ["clean"]
 [tasks.clippy]
 command = "cargo"
 args = ["clippy"]
-dependencies = ["clean"]
 
 [tasks.test]
 command = "cargo"
 args = ["test"]
-dependencies = ["clean"]
 
 [tasks.doc]
 command = "cargo"
 args = ["doc"]
-dependencies = ["clean"]
+
+[tasks.deps]
+install_crate = { crate_name = "cargo-machete", binary = "machete", test_arg = "--help" }
+command = "cargo"
+args = ["machete"]
