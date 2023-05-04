@@ -3,18 +3,22 @@
     windows_subsystem = "windows"
 )]
 
-use serde::Deserialize;
-use std::env;
+use lazy_static::lazy_static;
+use serde::{Deserialize, Serialize};
+use serialport::available_ports;
+use std::io::Write;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::{
+    env,
+    sync::{Arc, Mutex},
+};
 use tauri::Manager;
 use tokio::io::{AsyncReadExt, BufReader};
 use tokio_serial::SerialPortBuilderExt;
-use serialport::available_ports;
 
 fn get_serial_ports() -> Vec<String> {
     match available_ports() {
-        Ok(ports) => {
-            ports.into_iter().map(|p| p.port_name).collect()
-        }
+        Ok(ports) => ports.into_iter().map(|p| p.port_name).collect(),
         Err(e) => {
             eprintln!("Failed to get serial ports: {}", e);
             Vec::new()
@@ -22,8 +26,7 @@ fn get_serial_ports() -> Vec<String> {
     }
 }
 
-
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(dead_code)]
 struct Telemetry {
     team_id: i32,
@@ -83,17 +86,42 @@ struct Telemetry {
     // formats. Do not include commas characters
     cmd_echo: String,
 }
-#[derive(Clone, serde::Serialize)]
-struct GraphDataPayload {
-    value: f32,
+
+struct ConnectedDevice {
+    buf_reader: Arc<Mutex<BufReader<tokio_serial::SerialStream>>>,
+    is_recording: AtomicBool,
+    telemetry_data: Mutex<Vec<Telemetry>>,
 }
 
+impl ConnectedDevice {
+    fn new(buf_reader: BufReader<tokio_serial::SerialStream>) -> Self {
+        Self {
+            buf_reader: Arc::new(Mutex::new(buf_reader)),
+            is_recording: AtomicBool::new(false),
+            telemetry_data: Mutex::new(vec![]),
+        }
+    }
+}
 
+// Wrap the ConnectedDevice in an Arc and Mutex for shared access
+// type SharedConnectedDevice = Arc<Mutex<Option<ConnectedDevice>>>;
 
+lazy_static! {
+    static ref SHARED_CONNECTED_DEVICE: Arc<Mutex<Option<ConnectedDevice>>> =
+        Arc::new(Mutex::new(None));
+}
+
+#[tauri::command(rename_all = "snake_case")]
+fn get_serial_ports_command() -> Vec<String> {
+    get_serial_ports()
+}
 
 #[tokio::main]
 async fn main() {
     let context = tauri::generate_context!();
+
+    // let connected_device: SharedConnectedDevice = Arc::new(Mutex::new(None));
+    let connected_device = SHARED_CONNECTED_DEVICE.clone();
 
     tauri::Builder::default()
         .menu(if cfg!(target_os = "macos") {
@@ -101,53 +129,60 @@ async fn main() {
         } else {
             tauri::Menu::default()
         })
-        .on_page_load(|app, _| {
+        .on_page_load(move |app, _| {
             let app_copy = app.clone();
-            println!("{:?}", get_serial_ports());
-            let port_name = String::from("/dev/cu.usbmodem11101");
-
-            // Configure the serial port settings
-            let mut builder = tokio_serial::new(port_name, 115200);
-            builder = builder
-                .flow_control(tokio_serial::FlowControl::None)
-                .stop_bits(tokio_serial::StopBits::One)
-                .parity(tokio_serial::Parity::None);
-
-            // Open the serial port
-            let port = builder.open_native_async().unwrap();
-
-            // Create a buffer for reading bytes from the serial port
-            let mut buf_reader = BufReader::with_capacity(4096, port);
-            let mut message = String::new();
+            let connected_device_clone = connected_device.clone();
 
             std::thread::spawn(move || {
                 let async_block = async move {
-                    while let Some(byte) = buf_reader.read_u8().await.ok() {
-                        if byte == b'\n' {
-                            // Process the complete message
-                            println!("Received message: {:?}", message);
-                            let mut csv_reader = csv::ReaderBuilder::new()
-                                .has_headers(false)
-                                .from_reader(message.as_bytes());
-                            for result in csv_reader.deserialize::<Telemetry>() {
-                                let telemetry = result.unwrap();
-                                println!("{:#?}", telemetry);
-                                app_copy
-                                    .emit_all(
-                                        "graph-data",
-                                        GraphDataPayload {
-                                            value: telemetry.voltage,
-                                        },
-                                    )
-                                    .expect("failed to emit event");
-                            }
+                    println!("Got the lock");
 
-                            // Reset the message buffer for the next message
-                            message.clear();
-                        } else {
-                            // Append the byte to the current message
-                            message.push(char::from(byte));
+                    loop {
+                        let connected_device_lock =
+                            connected_device_clone.lock().unwrap();
+                        if let Some(ref connected_device) = &*connected_device_lock {
+                            // let mut buf_reader = connected_device.buf_reader.clone();
+                            println!("Starting to read!");
+                            let mut message = String::new();
+                            // drop(connected_device_lock);
+
+                            while let Ok(byte) = connected_device
+                                .buf_reader
+                                .lock()
+                                .unwrap()
+                                .read_u8()
+                                .await
+                            {
+                                if byte == b'\n' {
+                                    // Process the complete message
+                                    println!("Received message: {:?}", message);
+                                    let mut csv_reader = csv::ReaderBuilder::new()
+                                        .has_headers(false)
+                                        .from_reader(message.as_bytes());
+                                    for result in csv_reader.deserialize::<Telemetry>()
+                                    {
+                                        let telemetry = result.unwrap();
+                                        println!("{:#?}", telemetry);
+
+                                        let mut telemetry_data_lock = connected_device
+                                            .telemetry_data
+                                            .lock()
+                                            .unwrap();
+                                        app_copy
+                                            .emit_all("graph-data", telemetry.clone())
+                                            .expect("failed to emit event");
+                                        telemetry_data_lock.push(telemetry);
+                                    }
+
+                                    // Reset the message buffer for the next message
+                                    message.clear();
+                                } else {
+                                    // Append the byte to the current message
+                                    message.push(char::from(byte));
+                                }
+                            }
                         }
+                        println!("Existing main loop lol");
                     }
                 };
                 tokio::runtime::Runtime::new()
@@ -155,6 +190,70 @@ async fn main() {
                     .block_on(async_block);
             });
         })
+        .invoke_handler(tauri::generate_handler![
+            get_serial_ports_command,
+            connect_to_device,
+            start_recording,
+            stop_recording_and_save_csv
+        ])
         .run(context)
         .expect("error while running tauri application");
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn connect_to_device(device: String) -> Result<(), String> {
+    println!("Connecting to: {}", device);
+    let mut builder = tokio_serial::new(device, 115200);
+    builder = builder
+        .flow_control(tokio_serial::FlowControl::None)
+        .stop_bits(tokio_serial::StopBits::One)
+        .parity(tokio_serial::Parity::None);
+
+    match builder.open_native_async() {
+        Ok(serial_stream) => {
+            let buf_reader = BufReader::with_capacity(4096, serial_stream);
+            let connected_device = ConnectedDevice::new(buf_reader);
+            let mut connected_device_lock = SHARED_CONNECTED_DEVICE.lock().unwrap();
+            *connected_device_lock = Some(connected_device);
+            println!("Connected!");
+            Ok(())
+        }
+        Err(e) => Err(format!("Error connecting to device: {}", e)),
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn start_recording() -> Result<(), String> {
+    let connected_device_lock = SHARED_CONNECTED_DEVICE.lock().unwrap();
+    if let Some(connected_device) = connected_device_lock.as_ref() {
+        connected_device.is_recording.store(true, Ordering::Relaxed);
+        Ok(())
+    } else {
+        Err("No connected device found.".to_string())
+    }
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn stop_recording_and_save_csv(output_file: String) -> Result<(), String> {
+    let mut connected_device_lock = SHARED_CONNECTED_DEVICE.lock().unwrap();
+    if let Some(connected_device) = connected_device_lock.as_mut() {
+        connected_device
+            .is_recording
+            .store(false, Ordering::Relaxed);
+
+        let telemetry_data_lock = connected_device.telemetry_data.lock().unwrap();
+        let mut csv_writer = csv::Writer::from_path(output_file)
+            .map_err(|e| format!("Error creating CSV file: {}", e))?;
+        for telemetry in telemetry_data_lock.iter() {
+            csv_writer
+                .serialize(telemetry)
+                .map_err(|e| format!("Error writing CSV data: {}", e))?;
+        }
+        csv_writer
+            .flush()
+            .map_err(|e| format!("Error flushing CSV data: {}", e))?;
+        Ok(())
+    } else {
+        Err("No connected device found.".to_string())
+    }
 }

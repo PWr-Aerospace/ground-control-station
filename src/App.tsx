@@ -4,11 +4,36 @@ import "./index.css";
 import Chart from "react-apexcharts";
 import { Tab, Tabs, TabList, TabPanel } from "react-tabs";
 import "./styles.css";
+import { invoke } from '@tauri-apps/api/tauri';
+
 
 interface DisplayLabelProps {
     title: string;
     value: string;
 }
+
+interface Telemetry {
+    team_id: number;
+    mission_time: string;
+    packet_count: number;
+    mode: string;
+    state: string;
+    altitude: number;
+    hs_deployed: string;
+    pc_deployed: string;
+    mast_raised: string;
+    temperature: number;
+    pressure: number;
+    voltage: number;
+    gps_time: string;
+    gps_altitude: number;
+    gps_latitude: number;
+    gps_longitude: number;
+    gps_sats: number;
+    tilt_x: number;
+    tilt_y: number;
+    cmd_echo: string;
+  }
 
 const DisplayLabel = ({ title, value }: DisplayLabelProps) => {
     return (
@@ -32,14 +57,76 @@ const Button = ({ text, onClick }: ButtonProps) => {
     );
 };
 
+
+
+
 function App() {
     const [graphData, setGraphData] = useState<number[]>([]);
+    const [devices, setDevices] = useState<string[]>([]);
+    const [selectedDevice, setSelectedDevice] = useState<string>("");
+    const [isConnected, setIsConnected] = useState<boolean>(false);
+    const [isRecording, setIsRecording] = useState<boolean>(false);
+
 
     useEffect(() => {
+        async function fetchDevices() {
+            try {
+                const deviceList = await invoke<string[]>("get_serial_ports_command");
+                setDevices(deviceList);
+                if (deviceList.length > 0) {
+                    setSelectedDevice(deviceList[0]);
+                }
+            } catch (error) {
+                console.error("Failed to fetch devices:", error);
+            }
+        }
+
+        fetchDevices();
+    }, []);
+
+    const stopAndSaveCSV = async () => {
+        setIsRecording(false);
+
+        try {
+            await invoke("stop_recording_and_save_csv", { data: graphData });
+            setIsConnected(false);
+        } catch (error) {
+            console.error("Failed to disconnect and save CSV:", error);
+        }
+    };
+
+    const startConnection = async () => {
+        if (!selectedDevice) {
+            alert("Please select a device before starting.");
+            return;
+        }
+
+        try {
+            await invoke("connect_to_device", { device: selectedDevice });
+            setIsConnected(true);
+            setIsRecording(true);
+        } catch (error) {
+            console.error("Failed to connect to the device:", error);
+        }
+    };
+
+    const handleDeviceChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        setSelectedDevice(event.target.value);
+    };
+
+
+    useEffect(() => {
+        // if (!isConnected || !isRecording) return;
+        if (!selectedDevice) {
+            window.alert("Please select a device before starting.");
+            return;
+        }
+
         const graphDataListener = listen(
             "graph-data",
-            ({ payload: { value } }: { payload: { value: number } }) => {
-                setGraphData((old) => [...old, value]);
+            ({ payload: telemetry }: { payload: Telemetry }) => {
+                console.log(telemetry.altitude)
+                setGraphData((old) => [...old, telemetry.altitude]);
             }
         );
 
@@ -48,13 +135,15 @@ function App() {
                 unlisten();
             });
         };
-    }, []);
+    }, [isConnected, isRecording]);
+
     const series = [
         {
             name: "series-1",
             data: graphData,
         },
     ];
+
     return (
         <div className="App">
             <div className="top-row">
@@ -83,10 +172,10 @@ function App() {
                 </div>
                 {/* Third Column */}
                 <div>
-                    <Button text="Start" />
+                    <Button text="Start" onClick={startConnection} />
                     <Button text="Start Telemetry" />
                     <Button text="Stop Telemetry" />
-                    <Button text="Stop and Save CSV" />
+                    <Button text="Stop and Save CSV" onClick={stopAndSaveCSV} />
                     <Button text="Load CSV" />
                 </div>
                 {/* Fourth Column */}
@@ -96,6 +185,13 @@ function App() {
                     <Button text="Simulation Activate" />
                     <Button text="Simulation Disable" />
                     <Button text="Serial Options" />
+                    <select value={selectedDevice} onChange={handleDeviceChange}>
+                        {devices.map((device) => (
+                            <option key={device} value={device}>
+                                {device}
+                            </option>
+                        ))}
+                    </select>
                 </div>
             </div>
             <div className="bottom-row">
@@ -121,9 +217,9 @@ function App() {
                                     },
                                     type: "numeric",
                                 },
-                                yaxis: { title: { text: "Voltage [V]" } },
+                                yaxis: { title: { text: "Altitude [m]" } },
                                 title: {
-                                    text: "Example Voltage",
+                                    text: "Example Altitude",
                                     align: "center",
                                     style: {
                                         fontSize: "20px",
@@ -153,7 +249,6 @@ function App() {
                         />
                     </TabPanel>
                     <TabPanel className="plot-container">
-
                         <Chart
                             options={{
                                 chart: {
@@ -168,7 +263,7 @@ function App() {
                                     },
                                     type: "numeric",
                                 },
-                                yaxis: { title: { text: "Altitude [m]" } },
+                                yaxis: { title: { text: "Dupa [m]" } },
                                 title: {
                                     text: "Example Altitude",
                                     align: "center",
