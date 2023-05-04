@@ -6,7 +6,6 @@
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serialport::available_ports;
-use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     env,
@@ -130,7 +129,7 @@ async fn main() {
             tauri::Menu::default()
         })
         .on_page_load(move |app, _| {
-            let app_copy = app.clone();
+            let app_copy = app;
             let connected_device_clone = connected_device.clone();
 
             std::thread::spawn(move || {
