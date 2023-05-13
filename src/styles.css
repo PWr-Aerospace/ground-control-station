@@ -93,3 +93,10 @@ button:disabled, select:disabled {
   color: #666666;
   cursor: not-allowed;
 }
+
+
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* Adjust as needed */
+    gap: 20px; /* Adjust as needed */
+}

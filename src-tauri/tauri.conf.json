@@ -45,7 +45,7 @@
       "active": false
     },
     "windows": [{
-      "fullscreen": false,
+      "fullscreen": true,
       "resizable": true,
       "title": "Ground Control Station",
       "width": 800,

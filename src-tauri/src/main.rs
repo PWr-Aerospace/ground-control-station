@@ -94,7 +94,6 @@ impl ConnectedDevice {
 }
 
 // Wrap the ConnectedDevice in an Arc and Mutex for shared access
-
 lazy_static! {
     static ref SHARED_CONNECTED_DEVICE: Arc<Mutex<Option<ConnectedDevice>>> =
         Arc::new(Mutex::new(None));
@@ -136,10 +135,8 @@ async fn main() {
                         let connected_device_lock =
                             connected_device_clone.lock().unwrap();
                         if let Some(ref connected_device) = &*connected_device_lock {
-                            // let mut buf_reader = connected_device.buf_reader.clone();
                             println!("Starting to read!");
                             let mut message = String::new();
-                            // drop(connected_device_lock);
 
                             while let Ok(byte) = connected_device
                                 .buf_reader
@@ -177,7 +174,7 @@ async fn main() {
                                 }
                             }
                         }
-                        println!("Existing main loop lol");
+                        println!("Existing main loop.");
                     }
                 };
                 tokio::runtime::Runtime::new()
@@ -276,3 +273,109 @@ fn get_serial_ports_command() -> Vec<String> {
     println!("Fetching serial ports");
     get_serial_ports()
 }
+
+
+// <Chart
+// options={{
+//     chart: {
+//         id: "john-chart",
+//         toolbar: {
+//             show: false,
+//         },
+//     },
+//     xaxis: {
+//         tickAmount: 10,
+//         title: {
+//             text: "Time [hh:mm:ss]",
+//         },
+//         type: "category",
+//         categories: graphData.time,
+//     },
+//     yaxis: {
+//         labels: {
+//             formatter: (value: number) => {
+//                 return value.toFixed(1);
+//             },
+//         }, title: { text: "Celsius [C]" }
+//     },
+//     title: {
+//         text: "Temperature",
+//         align: "center",
+//         style: {
+//             fontSize: "20px",
+//             fontWeight: "bold",
+//         },
+//     },
+//     colors: ["#ff0000"],
+//     stroke: {
+//         width: 1,
+//         curve: "straight",
+//     },
+//     markers: {
+//         size: 0,
+//     },
+//     legend: {
+//         show: true,
+//         position: "top",
+//         horizontalAlign: "right",
+//         labels: {
+//             colors: "#fff",
+//         },
+//     },
+// }}
+// series={temperatureSeries}
+// type="line"
+// width={500}
+// />
+// <Chart
+// options={{
+//     chart: {
+//         id: "john-chart",
+//         toolbar: {
+//             show: false,
+//         },
+//     },
+//     xaxis: {
+//         tickAmount: 10,
+//         title: {
+//             text: "Time [hh:mm:ss]",
+//         },
+//         type: "category",
+//         categories: graphData.time,
+//     },
+//     yaxis: {
+//         labels: {
+//             formatter: (value: number) => {
+//                 return value.toFixed(1);
+//             },
+//         }, title: { text: "Pressure [kPa]" }
+//     },
+//     title: {
+//         text: "Pressure",
+//         align: "center",
+//         style: {
+//             fontSize: "20px",
+//             fontWeight: "bold",
+//         },
+//     },
+//     colors: ["#ff0000"],
+//     stroke: {
+//         width: 1,
+//         curve: "straight",
+//     },
+//     markers: {
+//         size: 0,
+//     },
+//     legend: {
+//         show: true,
+//         position: "top",
+//         horizontalAlign: "right",
+//         labels: {
+//             colors: "#fff",
+//         },
+//     },
+// }}
+// series={pressureSeries}
+// type="line"
+// width={500}
+// />

@@ -35,6 +35,14 @@ interface Telemetry {
     cmd_echo: string;
 }
 
+interface GraphData {
+    time: string[];
+    altitude: number[];
+    temperature: number[];
+    pressure: number[];
+    voltage: number[];
+}
+
 const DisplayLabel = ({ title, value }: DisplayLabelProps) => {
     return (
         <div className="display-label-container">
@@ -60,11 +68,19 @@ const Button = ({ text, onClick, disabled }: ButtonProps) => {
 };
 
 
-
+// tilty tez do plotu
 
 
 function App() {
-    const [graphData, setGraphData] = useState<number[]>([]);
+    const [graphData, setGraphData] = useState<GraphData>({
+        time: [],
+        altitude: [],
+        temperature: [],
+        pressure: [],
+        voltage: [],
+    });
+    const [latestTelemetry, setLatestTelemetry] = useState<Telemetry | null>(null);
+
     const [devices, setDevices] = useState<string[]>([]);
     const [selectedDevice, setSelectedDevice] = useState<string>("");
     const [selectedBaudRate, setSelectedBaudRate] = useState<number>(115200);
@@ -72,13 +88,11 @@ function App() {
     const [isRecording, setIsRecording] = useState<boolean>(false);
     const [graphDataListener, setGraphDataListener] = useState<Promise<UnlistenFn> | null>(null);
 
+
     async function fetchDevices() {
         try {
             const deviceList = await invoke<string[]>("get_serial_ports_command");
             setDevices(deviceList);
-            // if (deviceList.length > 0) {
-            //     setSelectedDevice(deviceList[0]);
-            // }
         } catch (error) {
             console.error("Failed to fetch devices:", error);
         }
@@ -122,8 +136,13 @@ function App() {
             const graphDataListener = listen(
                 "graph-data",
                 ({ payload: telemetry }: { payload: Telemetry }) => {
-                    console.log(telemetry.altitude)
-                    setGraphData((old) => [...old, telemetry.altitude]);
+                    setGraphData((old) => ({
+                        time: [...old.time, telemetry.mission_time],
+                        altitude: [...old.altitude, telemetry.altitude],
+                        temperature: [...old.temperature, telemetry.temperature],
+                        pressure: [...old.pressure, telemetry.pressure],
+                        voltage: [...old.voltage, telemetry.voltage],
+                    }));
                 }
             );
 
@@ -146,7 +165,6 @@ function App() {
 
 
     useEffect(() => {
-        // if (!isConnected || !isRecording) return;
         if (!isConnected || !isRecording) {
             return;
         }
@@ -154,8 +172,13 @@ function App() {
         const graphDataListener = listen(
             "graph-data",
             ({ payload: telemetry }: { payload: Telemetry }) => {
-                console.log(telemetry.altitude)
-                setGraphData((old) => [...old, telemetry.altitude]);
+                setGraphData((old) => ({
+                    time: [...old.time, telemetry.mission_time],
+                    altitude: [...old.altitude, telemetry.altitude],
+                    temperature: [...old.temperature, telemetry.temperature],
+                    pressure: [...old.pressure, telemetry.pressure],
+                    voltage: [...old.voltage, telemetry.voltage],
+                }));
             }
         );
 
@@ -172,6 +195,10 @@ function App() {
             data: graphData,
         },
     ];
+    const altitudeSeries = [{ name: "altitude", data: graphData.altitude }];
+    const temperatureSeries = [{ name: "temperature", data: graphData.temperature }];
+    const pressureSeries = [{ name: "pressure", data: graphData.pressure }];
+    const voltageSeries = [{ name: "voltage", data: graphData.voltage }];
 
     return (
         <div className="App">
@@ -238,102 +265,123 @@ function App() {
             <div className="bottom-row">
                 <Tabs className="tab-buttons">
                     <TabList>
-                        <Tab className="tab-button">Plot 1</Tab>
+                        <Tab className="tab-button">Plots</Tab>
                         <Tab className="tab-button">Map</Tab>
                         <Tab className="tab-button">Custom Commands</Tab>
                     </TabList>
 
                     <TabPanel className="plot-container">
-                        <Chart
-                            options={{
-                                chart: {
-                                    id: "john-chart",
-                                    toolbar: {
-                                        show: false,
+                        <div className="chart-grid">
+                            <Chart
+                                options={{
+                                    chart: {
+                                        id: "john-chart",
+                                        toolbar: {
+                                            show: false,
+                                        },
                                     },
-                                },
-                                xaxis: {
+                                    xaxis: {
+                                        tickAmount: 10,
+                                        title: {
+                                            text: "Time [hh:mm:ss]",
+                                        },
+                                        type: "category",
+                                        categories: graphData.time,
+                                    },
+                                    yaxis: {
+                                        labels: {
+                                            formatter: (value: number) => {
+                                                return value.toFixed(2); // Formats the value to 2 decimal places
+                                            },
+                                        }, title: { text: "Altitude [m]" }
+                                    },
                                     title: {
-                                        text: "Time [s]",
+                                        text: "Altitude",
+                                        align: "center",
+                                        style: {
+                                            fontSize: "20px",
+                                            fontWeight: "bold",
+                                        },
                                     },
-                                    type: "numeric",
-                                },
-                                yaxis: { title: { text: "Altitude [m]" } },
-                                title: {
-                                    text: "Example Altitude",
-                                    align: "center",
-                                    style: {
-                                        fontSize: "20px",
-                                        fontWeight: "bold",
+                                    colors: ["#ff0000"],
+                                    stroke: {
+                                        width: 1,
+                                        curve: "straight",
                                     },
-                                },
-                                colors: ["#ff0000"],
-                                stroke: {
-                                    width: 1,
-                                    curve: "straight",
-                                },
-                                markers: {
-                                    size: 0,
-                                },
-                                legend: {
-                                    show: true,
-                                    position: "top",
-                                    horizontalAlign: "right",
-                                    labels: {
-                                        colors: "#fff",
+                                    markers: {
+                                        size: 0,
                                     },
-                                },
-                            }}
-                            series={series}
-                            type="line"
-                            width={500}
-                        />
+                                    legend: {
+                                        show: true,
+                                        position: "top",
+                                        horizontalAlign: "right",
+                                        labels: {
+                                            colors: "#fff",
+                                        },
+                                    },
+                                }}
+                                series={altitudeSeries}
+                                type="line"
+                                width={500}
+                            />
+                            <Chart
+                                options={{
+                                    chart: {
+                                        id: "john-chart",
+                                        toolbar: {
+                                            show: false,
+                                        },
+                                    },
+                                    xaxis: {
+                                        tickAmount: 10,
+                                        title: {
+                                            text: "Time [hh:mm:ss]",
+                                        },
+                                        type: "category",
+                                        categories: graphData.time,
+                                    },
+                                    yaxis: {
+                                        labels: {
+                                            formatter: (value: number) => {
+                                                return value.toFixed(1);
+                                            },
+                                        }, title: { text: "Volts [V]" }
+                                    },
+                                    title: {
+                                        text: "Voltage",
+                                        align: "center",
+                                        style: {
+                                            fontSize: "20px",
+                                            fontWeight: "bold",
+                                        },
+                                    },
+                                    colors: ["#ff0000"],
+                                    stroke: {
+                                        width: 1,
+                                        curve: "straight",
+                                    },
+                                    markers: {
+                                        size: 0,
+                                    },
+                                    legend: {
+                                        show: true,
+                                        position: "top",
+                                        horizontalAlign: "right",
+                                        labels: {
+                                            colors: "#fff",
+                                        },
+                                    },
+                                }}
+                                series={voltageSeries}
+                                type="line"
+                                width={500}
+                            />
+
+                        </div>
+
                     </TabPanel>
                     <TabPanel className="plot-container">
-                        <Chart
-                            options={{
-                                chart: {
-                                    id: "john-chart",
-                                    toolbar: {
-                                        show: false,
-                                    },
-                                },
-                                xaxis: {
-                                    title: {
-                                        text: "Time [s]",
-                                    },
-                                    type: "numeric",
-                                },
-                                yaxis: { title: { text: "Dupa [m]" } },
-                                title: {
-                                    text: "Example Altitude",
-                                    align: "center",
-                                    style: {
-                                        fontSize: "20px",
-                                        fontWeight: "bold",
-                                    },
-                                },
-                                colors: ["#ff0000"],
-                                stroke: {
-                                    width: 1,
-                                    curve: "straight",
-                                },
-                                markers: {
-                                    size: 0,
-                                },
-                                legend: {
-                                    show: true,
-                                    position: "top",
-                                    horizontalAlign: "right",
-                                    labels: {
-                                        colors: "#fff",
-                                    },
-                                },
-                            }}
-                            series={series}
-                            type="line"
-                            width={500}
-                        />
+                        {/* TBD */}
                     </TabPanel>
 
                 </Tabs>
