@@ -33,7 +33,7 @@ interface Telemetry {
     tilt_x: number;
     tilt_y: number;
     cmd_echo: string;
-  }
+}
 
 const DisplayLabel = ({ title, value }: DisplayLabelProps) => {
     return (
@@ -47,11 +47,13 @@ const DisplayLabel = ({ title, value }: DisplayLabelProps) => {
 interface ButtonProps {
     text: string;
     onClick?: () => void;
-}
+    disabled?: boolean;
 
-const Button = ({ text, onClick }: ButtonProps) => {
+
+}
+const Button = ({ text, onClick, disabled }: ButtonProps) => {
     return (
-        <button className="button" onClick={onClick}>
+        <button className="button" onClick={onClick} disabled={disabled}>
             <p className="button-text">{text}</p>
         </button>
     );
@@ -60,32 +62,42 @@ const Button = ({ text, onClick }: ButtonProps) => {
 
 
 
+
 function App() {
     const [graphData, setGraphData] = useState<number[]>([]);
     const [devices, setDevices] = useState<string[]>([]);
     const [selectedDevice, setSelectedDevice] = useState<string>("");
+    const [selectedBaudRate, setSelectedBaudRate] = useState<number>(115200);
     const [isConnected, setIsConnected] = useState<boolean>(false);
     const [isRecording, setIsRecording] = useState<boolean>(false);
+    const [graphDataListener, setGraphDataListener] = useState<Promise<UnlistenFn> | null>(null);
 
-
-    useEffect(() => {
-        async function fetchDevices() {
-            try {
-                const deviceList = await invoke<string[]>("get_serial_ports_command");
-                setDevices(deviceList);
-                if (deviceList.length > 0) {
-                    setSelectedDevice(deviceList[0]);
-                }
-            } catch (error) {
-                console.error("Failed to fetch devices:", error);
-            }
+    async function fetchDevices() {
+        try {
+            const deviceList = await invoke<string[]>("get_serial_ports_command");
+            setDevices(deviceList);
+            // if (deviceList.length > 0) {
+            //     setSelectedDevice(deviceList[0]);
+            // }
+        } catch (error) {
+            console.error("Failed to fetch devices:", error);
         }
+    }
+    useEffect(() => {
 
         fetchDevices();
     }, []);
 
     const stopAndSaveCSV = async () => {
         setIsRecording(false);
+
+        // Unlisten the event
+        if (graphDataListener) {
+            graphDataListener.then((unlisten: UnlistenFn) => {
+                unlisten();
+            });
+            setGraphDataListener(null); // Reset the listener state
+        }
 
         try {
             await invoke("stop_recording_and_save_csv", { data: graphData });
@@ -95,6 +107,7 @@ function App() {
         }
     };
 
+
     const startConnection = async () => {
         if (!selectedDevice) {
             alert("Please select a device before starting.");
@@ -102,9 +115,21 @@ function App() {
         }
 
         try {
-            await invoke("connect_to_device", { device: selectedDevice });
+            await invoke("connect_to_device", { device: selectedDevice, baudrate: selectedBaudRate });
             setIsConnected(true);
             setIsRecording(true);
+
+            const graphDataListener = listen(
+                "graph-data",
+                ({ payload: telemetry }: { payload: Telemetry }) => {
+                    console.log(telemetry.altitude)
+                    setGraphData((old) => [...old, telemetry.altitude]);
+                }
+            );
+
+            // Save listener to state so we can unlisten later
+            setGraphDataListener(graphDataListener);
+
         } catch (error) {
             console.error("Failed to connect to the device:", error);
         }
@@ -114,11 +139,15 @@ function App() {
         setSelectedDevice(event.target.value);
     };
 
+    const handleBaudRateChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        setSelectedBaudRate(parseInt(event.target.value));
+    };
+
+
 
     useEffect(() => {
         // if (!isConnected || !isRecording) return;
-        if (!selectedDevice) {
-            window.alert("Please select a device before starting.");
+        if (!isConnected || !isRecording) {
             return;
         }
 
@@ -172,11 +201,11 @@ function App() {
                 </div>
                 {/* Third Column */}
                 <div>
-                    <Button text="Start" onClick={startConnection} />
-                    <Button text="Start Telemetry" />
+                    <Button text="Start" onClick={startConnection} disabled={isConnected} />
+                    <Button text="Start Telemetry" disabled={isConnected} />
                     <Button text="Stop Telemetry" />
                     <Button text="Stop and Save CSV" onClick={stopAndSaveCSV} />
-                    <Button text="Load CSV" />
+                    <Button text="Load CSV" disabled={isConnected} />
                 </div>
                 {/* Fourth Column */}
                 <div>
@@ -184,13 +213,25 @@ function App() {
                     <Button text="Simulation Enable" />
                     <Button text="Simulation Activate" />
                     <Button text="Simulation Disable" />
-                    <Button text="Serial Options" />
-                    <select value={selectedDevice} onChange={handleDeviceChange}>
+
+                    <Button text="Refresh Devices" onClick={fetchDevices} disabled={isConnected} />
+
+                    <select value={selectedDevice} onChange={handleDeviceChange} disabled={isConnected}>
+                        <option value="" disabled>Pick a device</option>
                         {devices.map((device) => (
                             <option key={device} value={device}>
                                 {device}
                             </option>
                         ))}
+                    </select>
+
+                    <select id="baud-rate-select" onChange={handleBaudRateChange} disabled={isConnected} >
+                        <option value="9600">9600</option>
+                        <option value="14400">14400</option>
+                        <option value="19200">19200</option>
+                        <option value="38400">38400</option>
+                        <option value="57600">57600</option>
+                        <option value="115200" selected>115200</option>
                     </select>
                 </div>
             </div>
@@ -198,8 +239,8 @@ function App() {
                 <Tabs className="tab-buttons">
                     <TabList>
                         <Tab className="tab-button">Plot 1</Tab>
-                        <Tab className="tab-button">Plot 2</Tab>
-                        <Tab className="tab-button">Plot 3</Tab>
+                        <Tab className="tab-button">Map</Tab>
+                        <Tab className="tab-button">Custom Commands</Tab>
                     </TabList>
 
                     <TabPanel className="plot-container">

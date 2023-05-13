@@ -12,6 +12,14 @@
   },
   "tauri": {
     "allowlist": {
+      "dialog": {
+        "all": true,
+        "ask": true,
+        "confirm": true,
+        "message": true,
+        "open": true,
+        "save": true
+      },
       "all": false,
       "shell": {
         "all": false,
@@ -36,14 +44,12 @@
     "updater": {
       "active": false
     },
-    "windows": [
-      {
-        "fullscreen": false,
-        "resizable": true,
-        "title": "Ground Control Station",
-        "width": 800,
-        "height": 600
-      }
-    ]
+    "windows": [{
+      "fullscreen": false,
+      "resizable": true,
+      "title": "Ground Control Station",
+      "width": 800,
+      "height": 600
+    }]
   }
 }

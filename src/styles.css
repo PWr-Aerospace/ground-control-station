@@ -88,3 +88,8 @@ code {
     margin: 50px auto 0;
     bottom: 0;
 }
+button:disabled, select:disabled {
+  background-color: #cccccc;
+  color: #666666;
+  cursor: not-allowed;
+}
