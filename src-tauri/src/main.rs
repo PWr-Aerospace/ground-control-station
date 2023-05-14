@@ -13,9 +13,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tauri::Manager;
+use tokio::io::AsyncWriteExt;
 use tokio::io::{AsyncReadExt, BufReader};
 use tokio_serial::SerialPortBuilderExt;
-
+// use futures_util::future::try_future::TryFutureExt;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(dead_code)]
 struct Telemetry {
@@ -124,6 +125,7 @@ async fn main() {
                     println!("Got the lock");
 
                     loop {
+                        println!("In the main loop");
                         let (lock, cvar) = &*device_available_clone;
                         let mut device_is_available = lock.lock().unwrap();
 
@@ -274,6 +276,24 @@ fn get_serial_ports_command() -> Vec<String> {
     get_serial_ports()
 }
 
+#[tauri::command(rename_all = "snake_case")]
+async fn send_message(message: String) -> Result<(), String> {
+    let connected_device_lock = SHARED_CONNECTED_DEVICE.lock().unwrap();
+    if let Some(connected_device) = connected_device_lock.as_ref() {
+        let mut buf_writer = connected_device.buf_reader.lock().unwrap();
+        buf_writer
+            .write_all(message.as_bytes())
+            .await
+            .map_err(|e| format!("Error sending message: {}", e))?;
+        buf_writer
+            .flush()
+            .await
+            .map_err(|e| format!("Error flushing message: {}", e))?;
+        Ok(())
+    } else {
+        Err("No connected device found.".to_string())
+    }
+}
 
 // <Chart
 // options={{

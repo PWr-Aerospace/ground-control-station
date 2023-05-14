@@ -68,12 +68,13 @@ code {
     justify-content: center;
     align-items: center;
     flex-direction: column;
+    height: 80vh; /* or whatever value suits your design */
 }
 
 .top-row {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 16px;
+    margin-bottom: 1px;
 }
 .tab-button.react-tabs__tab--selected {
     color: #007aff;
@@ -84,19 +85,30 @@ code {
     position: relative;
     top: 0;
     width: 100%;
-    height: 100%;
+    height: 1000px; /* or a fixed value */
     margin: 50px auto 0;
     bottom: 0;
 }
-button:disabled, select:disabled {
-  background-color: #cccccc;
-  color: #666666;
-  cursor: not-allowed;
+button:disabled,
+select:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
 }
-
 
 .chart-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr); /* Adjust as needed */
-    gap: 20px; /* Adjust as needed */
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr); /* adjust as needed */
+    grid-gap: 1em;
+    padding: 1em;
+}
+
+.chart-grid .span-two-columns {
+    grid-column: span 2;
+}
+
+.chart-item {
+    width: 500px;
+    height: 300px;
 }

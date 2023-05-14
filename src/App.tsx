@@ -1,11 +1,30 @@
 import { useEffect, useState } from "react";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import "./index.css";
-import Chart from "react-apexcharts";
 import { Tab, Tabs, TabList, TabPanel } from "react-tabs";
 import "./styles.css";
 import { invoke } from '@tauri-apps/api/tauri';
+import { Line } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+import { dialog } from '@tauri-apps/api';
+// import 'leaflet';
 
+import {
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+} from 'chart.js';
+
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+);
 
 interface DisplayLabelProps {
     title: string;
@@ -41,6 +60,21 @@ interface GraphData {
     temperature: number[];
     pressure: number[];
     voltage: number[];
+    tiltx: number[];
+    tilty: number[];
+}
+
+async function saveFile() {
+    const result = await dialog.save({
+        defaultPath: 'data.csv',
+    });
+
+    if (result === null) {
+        console.log('File save was canceled');
+    } else {
+        console.log('File will be saved to', result);
+    }
+    return result;
 }
 
 const DisplayLabel = ({ title, value }: DisplayLabelProps) => {
@@ -68,8 +102,6 @@ const Button = ({ text, onClick, disabled }: ButtonProps) => {
 };
 
 
-// tilty tez do plotu
-
 
 function App() {
     const [graphData, setGraphData] = useState<GraphData>({
@@ -78,6 +110,8 @@ function App() {
         temperature: [],
         pressure: [],
         voltage: [],
+        tiltx: [],
+        tilty: [],
     });
     const [latestTelemetry, setLatestTelemetry] = useState<Telemetry | null>(null);
 
@@ -97,6 +131,7 @@ function App() {
             console.error("Failed to fetch devices:", error);
         }
     }
+
     useEffect(() => {
 
         fetchDevices();
@@ -112,9 +147,16 @@ function App() {
             });
             setGraphDataListener(null); // Reset the listener state
         }
+        // Get the file path from the user
+        const filePath = await saveFile();
+        if (filePath === null) {
+            console.log('File save was canceled');
+            return; // Exit the function early
+        }
+        console.log("Path for the file: ", filePath);
 
         try {
-            await invoke("stop_recording_and_save_csv", { data: graphData });
+            await invoke("stop_recording_and_save_csv", { output_file: filePath });
             setIsConnected(false);
         } catch (error) {
             console.error("Failed to disconnect and save CSV:", error);
@@ -136,12 +178,15 @@ function App() {
             const graphDataListener = listen(
                 "graph-data",
                 ({ payload: telemetry }: { payload: Telemetry }) => {
+                    setLatestTelemetry(telemetry);
                     setGraphData((old) => ({
                         time: [...old.time, telemetry.mission_time],
                         altitude: [...old.altitude, telemetry.altitude],
                         temperature: [...old.temperature, telemetry.temperature],
                         pressure: [...old.pressure, telemetry.pressure],
                         voltage: [...old.voltage, telemetry.voltage],
+                        tiltx: [...old.tiltx, telemetry.tilt_x],
+                        tilty: [...old.tilty, telemetry.tilt_y],
                     }));
                 }
             );
@@ -172,12 +217,15 @@ function App() {
         const graphDataListener = listen(
             "graph-data",
             ({ payload: telemetry }: { payload: Telemetry }) => {
+                setLatestTelemetry(telemetry);
                 setGraphData((old) => ({
                     time: [...old.time, telemetry.mission_time],
                     altitude: [...old.altitude, telemetry.altitude],
                     temperature: [...old.temperature, telemetry.temperature],
                     pressure: [...old.pressure, telemetry.pressure],
                     voltage: [...old.voltage, telemetry.voltage],
+                    tiltx: [...old.tiltx, telemetry.tilt_x],
+                    tilty: [...old.tilty, telemetry.tilt_y],
                 }));
             }
         );
@@ -189,16 +237,70 @@ function App() {
         };
     }, [isConnected, isRecording]);
 
-    const series = [
-        {
-            name: "series-1",
-            data: graphData,
+
+    const altitudeData = {
+        labels: graphData.time,
+        datasets: [{
+            label: "Altitude",
+            data: graphData.altitude,
+            fill: false,
+            borderColor: '#ff0000'
+        }]
+    };
+
+    const voltageData = {
+        labels: graphData.time,
+        legend: {
+            display: false
         },
-    ];
-    const altitudeSeries = [{ name: "altitude", data: graphData.altitude }];
-    const temperatureSeries = [{ name: "temperature", data: graphData.temperature }];
-    const pressureSeries = [{ name: "pressure", data: graphData.pressure }];
-    const voltageSeries = [{ name: "voltage", data: graphData.voltage }];
+        datasets: [{
+            label: "Voltage",
+            data: graphData.voltage,
+            fill: false,
+            borderColor: '#ff0000'
+        }]
+    };
+
+    const pressureData = {
+        labels: graphData.time,
+        datasets: [{
+            label: "Pressure",
+            data: graphData.pressure,
+            fill: false,
+            borderColor: '#ff0000'
+        }]
+    };
+
+    const temperatureData = {
+        labels: graphData.time,
+        datasets: [{
+            label: "Temperature",
+            data: graphData.temperature,
+            fill: false,
+            borderColor: '#ff0000'
+        }]
+    };
+
+    const tiltxData = {
+        labels: graphData.time,
+        datasets: [{
+            label: "Tilt X",
+            data: graphData.tiltx,
+            fill: false,
+            borderColor: '#ff0000'
+        }]
+    };
+
+    const tiltyData = {
+        labels: graphData.time,
+        datasets: [{
+            label: "Tilt Y",
+            data: graphData.tilty,
+            fill: false,
+            borderColor: '#ff0000'
+        }]
+    };
+
 
     return (
         <div className="App">
@@ -211,20 +313,20 @@ function App() {
                         value="IDLE"
                     />
                     <DisplayLabel title="Payload software state" value="IDLE" />
-                    <DisplayLabel title="Mission time" value="0:06" />
-                    <DisplayLabel title="Packet count" value="6" />
-                    <DisplayLabel title="CMD_ECHO" value="" />
-                    <DisplayLabel title="GPS time" value="" />
+                    <DisplayLabel title="Mission time" value={latestTelemetry?.mission_time.toString() || '0.0'} />
+                    <DisplayLabel title="Packet count" value={latestTelemetry?.packet_count.toString() || '0.0'} />
+                    <DisplayLabel title="CMD_ECHO" value={latestTelemetry?.cmd_echo.toString() || '0.0'} />
+                    <DisplayLabel title="GPS time" value={latestTelemetry?.gps_time.toString() || '0.0'} />
                     <DisplayLabel title="Pointing Error" value="" />
                 </div>
                 {/* Second Column */}
                 <div>
                     <DisplayLabel title="Simulation Status" value="DISABLED" />
-                    <DisplayLabel title="Mast raised" value="FALSE" />
-                    <DisplayLabel title="HS Deployed" value="FALSE" />
-                    <DisplayLabel title="PC Deployed" value="FALSE" />
-                    <DisplayLabel title="Tilt X" value="0.0" />
-                    <DisplayLabel title="Tilt Y" value="0.0" />
+                    <DisplayLabel title="Mast raised" value={latestTelemetry?.mast_raised.toString() || '0.0'} />
+                    <DisplayLabel title="HS Deployed" value={latestTelemetry?.hs_deployed.toString() || '0.0'} />
+                    <DisplayLabel title="PC Deployed" value={latestTelemetry?.pc_deployed.toString() || '0.0'} />
+                    <DisplayLabel title="Tilt X" value={latestTelemetry ? latestTelemetry.tilt_x.toFixed(2) : '0.00'} />
+                    <DisplayLabel title="Tilt Y" value={latestTelemetry ? latestTelemetry.tilt_y.toFixed(2) : '0.00'} />
                 </div>
                 {/* Third Column */}
                 <div>
@@ -270,114 +372,294 @@ function App() {
                         <Tab className="tab-button">Custom Commands</Tab>
                     </TabList>
 
-                    <TabPanel className="plot-container">
+                    <TabPanel className="plot-container" >
                         <div className="chart-grid">
-                            <Chart
-                                options={{
-                                    chart: {
-                                        id: "john-chart",
-                                        toolbar: {
-                                            show: false,
-                                        },
-                                    },
-                                    xaxis: {
-                                        tickAmount: 10,
+                            <div className="chart-item">
+                                <Line options={{
+                                    maintainAspectRatio: false,
+                                    responsive: true,
+                                    plugins: {
                                         title: {
-                                            text: "Time [hh:mm:ss]",
-                                        },
-                                        type: "category",
-                                        categories: graphData.time,
-                                    },
-                                    yaxis: {
-                                        labels: {
-                                            formatter: (value: number) => {
-                                                return value.toFixed(2); // Formats the value to 2 decimal places
+                                            display: true,
+                                            font: {
+                                                weight: 'bold',
+                                                size: 16,
                                             },
-                                        }, title: { text: "Altitude [m]" }
-                                    },
-                                    title: {
-                                        text: "Altitude",
-                                        align: "center",
-                                        style: {
-                                            fontSize: "20px",
-                                            fontWeight: "bold",
+                                            text: 'Voltage',
                                         },
                                     },
-                                    colors: ["#ff0000"],
-                                    stroke: {
-                                        width: 1,
-                                        curve: "straight",
-                                    },
-                                    markers: {
-                                        size: 0,
-                                    },
-                                    legend: {
-                                        show: true,
-                                        position: "top",
-                                        horizontalAlign: "right",
-                                        labels: {
-                                            colors: "#fff",
+                                    scales: {
+                                        y: {
+                                            ticks: {
+                                                precision: 2
+                                            },
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 16,
+                                                },
+                                                text: "Voltage [V]"
+                                            },
                                         },
+                                        x: {
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 16,
+                                                },
+                                                text: "Time [hh:mm:ss]"
+                                            },
+                                        }
                                     },
-                                }}
-                                series={altitudeSeries}
-                                type="line"
-                                width={500}
-                            />
-                            <Chart
-                                options={{
-                                    chart: {
-                                        id: "john-chart",
-                                        toolbar: {
-                                            show: false,
-                                        },
-                                    },
-                                    xaxis: {
-                                        tickAmount: 10,
+                                    animation: false,
+                                    elements: {
+                                        point: {
+                                            pointStyle: false,
+                                        }
+                                    }
+                                }} data={voltageData} />
+                            </div>
+                            <div className="chart-item">
+                                <Line options={{
+                                    maintainAspectRatio: false,
+                                    responsive: true,
+                                    plugins: {
                                         title: {
-                                            text: "Time [hh:mm:ss]",
-                                        },
-                                        type: "category",
-                                        categories: graphData.time,
-                                    },
-                                    yaxis: {
-                                        labels: {
-                                            formatter: (value: number) => {
-                                                return value.toFixed(1);
+                                            display: true,
+                                            font: {
+                                                weight: 'bold',
+                                                size: 16,
                                             },
-                                        }, title: { text: "Volts [V]" }
-                                    },
-                                    title: {
-                                        text: "Voltage",
-                                        align: "center",
-                                        style: {
-                                            fontSize: "20px",
-                                            fontWeight: "bold",
+                                            text: 'Altitude',
                                         },
                                     },
-                                    colors: ["#ff0000"],
-                                    stroke: {
-                                        width: 1,
-                                        curve: "straight",
+                                    scales: {
+                                        y: {
+                                            ticks: {
+                                                precision: 1
+                                            },
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 16,
+                                                },
+                                                text: "Altitude [m]"
+                                            },
+                                        },
+                                        x: {
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 16,
+                                                },
+                                                text: "Time [hh:mm:ss]"
+                                            },
+                                        }
                                     },
-                                    markers: {
-                                        size: 0,
-                                    },
-                                    legend: {
-                                        show: true,
-                                        position: "top",
-                                        horizontalAlign: "right",
-                                        labels: {
-                                            colors: "#fff",
+                                    animation: false,
+                                    elements: {
+                                        point: {
+                                            pointStyle: false,
+                                        }
+                                    }
+                                }} data={altitudeData} />
+                            </div>
+                            <div className="chart-item">
+                                <Line options={{
+                                    maintainAspectRatio: false,
+                                    responsive: true,
+                                    plugins: {
+                                        title: {
+                                            display: true,
+                                            font: {
+                                                weight: 'bold',
+                                                size: 16,
+                                            },
+                                            text: 'Pressure',
                                         },
                                     },
-                                }}
-                                series={voltageSeries}
-                                type="line"
-                                width={500}
-                            />
 
+                                    scales: {
+                                        y: {
+                                            ticks: {
+                                                precision: 1
+                                            },
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 16,
+                                                },
+                                                text: "Pressure [pKa]"
+                                            },
+                                        },
+                                        x: {
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 16,
+                                                },
+                                                text: "Time [hh:mm:ss]"
+                                            },
+                                        }
+                                    },
+                                    animation: false,
+                                    elements: {
+                                        point: {
+                                            pointStyle: false,
+                                        }
+                                    }
+                                }} data={pressureData} />
+                            </div>
+                            <div className="chart-item">
+                                <Line options={{
+                                    maintainAspectRatio: false,
+                                    responsive: true,
+                                    plugins: {
+                                        title: {
+                                            display: true,
+                                            font: {
+                                                weight: 'bold',
+                                                size: 16,
+                                            },
+                                            text: 'Temperature',
+                                        },
+                                    },
+                                    scales: {
+                                        y: {
+                                            ticks: {
+                                                precision: 1
+                                            },
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 16,
+                                                },
+                                                text: "Temperature [C]"
+                                            },
+                                        },
+                                        x: {
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 16,
+                                                },
+                                                text: "Time [hh:mm:ss]"
+                                            },
+                                        }
+                                    },
+                                    animation: false,
+                                    elements: {
+                                        point: {
+                                            pointStyle: false,
+                                        }
+                                    }
+                                }} data={temperatureData} />
+                            </div>
+                            <div className="chart-item">
+                                <Line options={{
+                                    maintainAspectRatio: false,
+                                    responsive: true,
+                                    plugins: {
+                                        title: {
+                                            display: true,
+                                            font: {
+                                                weight: 'bold',
+                                                size: 16,
+                                            },
+                                            text: 'Tilt angle in the X axis',
+                                        },
+                                    },
+                                    scales: {
+                                        y: {
+                                            ticks: {
+                                                precision: 2
+                                            },
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 16,
+                                                },
+                                                text: "Tilt angle [°]"
+                                            },
+                                        },
+                                        x: {
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 16,
+                                                },
+                                                text: "Time [hh:mm:ss]"
+                                            },
+                                        }
+                                    },
+                                    animation: false,
+                                    elements: {
+                                        point: {
+                                            pointStyle: false,
+                                        }
+                                    }
+                                }
+                                } data={tiltxData} />
+                            </div>
+                            <div className="chart-item">
+                                <Line options={{
+                                    maintainAspectRatio: false,
+                                    responsive: true,
+                                    plugins: {
+                                        title: {
+                                            display: true,
+                                            font: {
+                                                weight: 'bold',
+                                                size: 16,
+                                            },
+                                            text: 'Tilt angle in the Y axis',
+                                        },
+                                    },
+                                    scales: {
+                                        y: {
+                                            ticks: {
+                                                precision: 2
+                                            },
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 16,
+                                                },
+                                                text: "Tilt angle [°]"
+                                            },
+                                        },
+                                        x: {
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 16,
+                                                },
+                                                text: "Time [hh:mm:ss]"
+                                            },
+                                        }
+                                    },
+                                    animation: false,
+                                    elements: {
+                                        point: {
+                                            pointStyle: false,
+                                        }
+                                    }
+                                }} data={tiltyData} />
+                            </div>
                         </div>
+
 
                     </TabPanel>
                     <TabPanel className="plot-container">
