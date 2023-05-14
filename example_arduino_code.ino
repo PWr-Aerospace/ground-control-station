@@ -28,15 +28,14 @@ String incrementTime(String time) {
 }
 
 void setup() {
-  // Begin the Serial at 9600 Baud
-  Serial.begin(9600);
+  Serial.begin(115200);
 }
 
 void loop() {
   // Dummy data
   static int team_id = 1082;
   static String mission_time = "13:14:02";
-  static float packet_count = 2.0;
+  static int packet_count = 2;
   static String mode = "F";
   static String state = "LAUNCH_WAIT";
   static float altitude = 3.0;

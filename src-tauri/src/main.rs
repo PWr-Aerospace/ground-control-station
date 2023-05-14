@@ -27,7 +27,7 @@ struct Telemetry {
     /// PACKET_COUNT is the total count of transmitted packets since turn on, which is to be
     /// reset to zero by command when the CanSat is installed in the rocket on the launch pad
     /// at the beginning of the mission and maintained through processor reset.
-    packet_count: f32,
+    packet_count: i32,
     /// 'F' for flight mode and 'S' for simulation mode
     mode: String,
     /// STATE is the operating state of the software. (e.g., LAUNCH_WAIT, ASCENT,
@@ -79,7 +79,7 @@ struct Telemetry {
 }
 
 struct ConnectedDevice {
-    buf_reader: Arc<Mutex<BufReader<tokio_serial::SerialStream>>>,
+    buf_reader: Arc<tokio::sync::Mutex<BufReader<tokio_serial::SerialStream>>>,
     is_recording: AtomicBool,
     telemetry_data: Mutex<Vec<Telemetry>>,
 }
@@ -87,8 +87,8 @@ struct ConnectedDevice {
 impl ConnectedDevice {
     fn new(buf_reader: BufReader<tokio_serial::SerialStream>) -> Self {
         Self {
-            buf_reader: Arc::new(Mutex::new(buf_reader)),
-            is_recording: AtomicBool::new(false),
+            buf_reader: Arc::new(tokio::sync::Mutex::new(buf_reader)),
+            is_recording: AtomicBool::new(true),
             telemetry_data: Mutex::new(vec![]),
         }
     }
@@ -100,6 +100,8 @@ lazy_static! {
         Arc::new(Mutex::new(None));
     static ref SHARED_DEVICE_AVAILABILITY_FLAG: Arc<(Mutex<bool>, Condvar)> =
         Arc::new((Mutex::new(false), Condvar::new()));
+    static ref SHARED_SHOULD_STOP_FLAG: Arc<AtomicBool> =
+        Arc::new(AtomicBool::new(false));
 }
 
 #[tokio::main]
@@ -119,6 +121,7 @@ async fn main() {
             let app_copy = app;
             let connected_device_clone = connected_device.clone();
             let device_available_clone = device_available.clone();
+            let should_stop_clone = Arc::clone(&SHARED_SHOULD_STOP_FLAG);
 
             std::thread::spawn(move || {
                 let async_block = async move {
@@ -138,15 +141,17 @@ async fn main() {
                             connected_device_clone.lock().unwrap();
                         if let Some(ref connected_device) = &*connected_device_lock {
                             println!("Starting to read!");
+                            print!("w");
+                            println!("Checking for is_recording");
                             let mut message = String::new();
 
-                            while let Ok(byte) = connected_device
-                                .buf_reader
-                                .lock()
-                                .unwrap()
-                                .read_u8()
-                                .await
-                            {
+                            let mut buf_reader_lock =
+                                connected_device.buf_reader.lock().await;
+                            while let Ok(byte) = buf_reader_lock.read_u8().await {
+                                if should_stop_clone.load(Ordering::Relaxed) {
+                                    break;
+                                }
+                                print!("o");
                                 if byte == b'\n' {
                                     // Process the complete message
                                     println!("Received message: {:?}", message);
@@ -156,7 +161,7 @@ async fn main() {
                                     for result in csv_reader.deserialize::<Telemetry>()
                                     {
                                         let telemetry = result.unwrap();
-                                        println!("{:#?}", telemetry);
+                                        // println!("{:#?}", telemetry);
 
                                         let mut telemetry_data_lock = connected_device
                                             .telemetry_data
@@ -176,7 +181,7 @@ async fn main() {
                                 }
                             }
                         }
-                        println!("Existing main loop.");
+                        print!("-");
                     }
                 };
                 tokio::runtime::Runtime::new()
@@ -207,12 +212,16 @@ async fn connect_to_device(device: String, baudrate: i32) -> Result<(), String> 
     match builder.open_native_async() {
         Ok(serial_stream) => {
             let buf_reader = BufReader::with_capacity(4096, serial_stream);
-            let connected_device = ConnectedDevice::new(buf_reader);
+            let mut connected_device = ConnectedDevice::new(buf_reader);
+            connected_device.is_recording = AtomicBool::new(true);
+            connected_device.is_recording.store(true, Ordering::Relaxed);
             let mut connected_device_lock = SHARED_CONNECTED_DEVICE.lock().unwrap();
             let device_available = SHARED_DEVICE_AVAILABILITY_FLAG.clone();
+            // Assign the newly created connected device to the shared connected device
             *connected_device_lock = Some(connected_device);
             println!("Connected!");
 
+            // Send a signal to the main reader that the device is ready to be read
             let (lock, cvar) = &*device_available;
             let mut device_is_available = lock.lock().unwrap();
             *device_is_available = true;
@@ -237,7 +246,13 @@ async fn start_recording() -> Result<(), String> {
 
 #[tauri::command(rename_all = "snake_case")]
 async fn stop_recording_and_save_csv(output_file: String) -> Result<(), String> {
+    println!("Trying to get the lock");
+    let should_stop_clone = Arc::clone(&SHARED_SHOULD_STOP_FLAG);
+    should_stop_clone.store(true, Ordering::Relaxed);
+
     let mut connected_device_lock = SHARED_CONNECTED_DEVICE.lock().unwrap();
+    println!("Got the lock");
+
     if let Some(connected_device) = connected_device_lock.as_mut() {
         connected_device
             .is_recording
@@ -276,126 +291,26 @@ fn get_serial_ports_command() -> Vec<String> {
     get_serial_ports()
 }
 
-#[tauri::command(rename_all = "snake_case")]
-async fn send_message(message: String) -> Result<(), String> {
+#[tauri::command]
+async fn send_message_to_device(message: String) -> Result<(), String> {
     let connected_device_lock = SHARED_CONNECTED_DEVICE.lock().unwrap();
     if let Some(connected_device) = connected_device_lock.as_ref() {
-        let mut buf_writer = connected_device.buf_reader.lock().unwrap();
-        buf_writer
-            .write_all(message.as_bytes())
-            .await
-            .map_err(|e| format!("Error sending message: {}", e))?;
-        buf_writer
-            .flush()
-            .await
-            .map_err(|e| format!("Error flushing message: {}", e))?;
+        // Clone the BufReader so we can move it into the async block
+        let buf_reader = Arc::clone(&connected_device.buf_reader);
+
+        // Spawn a new task to write the message
+        tokio::spawn(async move {
+            let mut lock = buf_reader.lock().await;
+            let write_result = lock.write_all(message.as_bytes()).await;
+
+            match write_result {
+                Ok(_) => println!("Message sent successfully"),
+                Err(e) => eprintln!("Error writing message to device: {}", e),
+            }
+        });
+
         Ok(())
     } else {
         Err("No connected device found.".to_string())
     }
 }
-
-// <Chart
-// options={{
-//     chart: {
-//         id: "john-chart",
-//         toolbar: {
-//             show: false,
-//         },
-//     },
-//     xaxis: {
-//         tickAmount: 10,
-//         title: {
-//             text: "Time [hh:mm:ss]",
-//         },
-//         type: "category",
-//         categories: graphData.time,
-//     },
-//     yaxis: {
-//         labels: {
-//             formatter: (value: number) => {
-//                 return value.toFixed(1);
-//             },
-//         }, title: { text: "Celsius [C]" }
-//     },
-//     title: {
-//         text: "Temperature",
-//         align: "center",
-//         style: {
-//             fontSize: "20px",
-//             fontWeight: "bold",
-//         },
-//     },
-//     colors: ["#ff0000"],
-//     stroke: {
-//         width: 1,
-//         curve: "straight",
-//     },
-//     markers: {
-//         size: 0,
-//     },
-//     legend: {
-//         show: true,
-//         position: "top",
-//         horizontalAlign: "right",
-//         labels: {
-//             colors: "#fff",
-//         },
-//     },
-// }}
-// series={temperatureSeries}
-// type="line"
-// width={500}
-// />
-// <Chart
-// options={{
-//     chart: {
-//         id: "john-chart",
-//         toolbar: {
-//             show: false,
-//         },
-//     },
-//     xaxis: {
-//         tickAmount: 10,
-//         title: {
-//             text: "Time [hh:mm:ss]",
-//         },
-//         type: "category",
-//         categories: graphData.time,
-//     },
-//     yaxis: {
-//         labels: {
-//             formatter: (value: number) => {
-//                 return value.toFixed(1);
-//             },
-//         }, title: { text: "Pressure [kPa]" }
-//     },
-//     title: {
-//         text: "Pressure",
-//         align: "center",
-//         style: {
-//             fontSize: "20px",
-//             fontWeight: "bold",
-//         },
-//     },
-//     colors: ["#ff0000"],
-//     stroke: {
-//         width: 1,
-//         curve: "straight",
-//     },
-//     markers: {
-//         size: 0,
-//     },
-//     legend: {
-//         show: true,
-//         position: "top",
-//         horizontalAlign: "right",
-//         labels: {
-//             colors: "#fff",
-//         },
-//     },
-// }}
-// series={pressureSeries}
-// type="line"
-// width={500}
-// />
