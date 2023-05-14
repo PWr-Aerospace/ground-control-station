@@ -3,6 +3,7 @@
     windows_subsystem = "windows"
 )]
 
+use csv::WriterBuilder;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serialport::available_ports;
@@ -15,7 +16,9 @@ use std::{
 use tauri::Manager;
 use tokio::io::AsyncWriteExt;
 use tokio::io::{AsyncReadExt, BufReader};
+use tokio::time::Duration;
 use tokio_serial::SerialPortBuilderExt;
+
 // use futures_util::future::try_future::TryFutureExt;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(dead_code)]
@@ -94,7 +97,6 @@ impl ConnectedDevice {
     }
 }
 
-// Wrap the ConnectedDevice in an Arc and Mutex for shared access
 lazy_static! {
     static ref SHARED_CONNECTED_DEVICE: Arc<Mutex<Option<ConnectedDevice>>> =
         Arc::new(Mutex::new(None));
@@ -102,6 +104,10 @@ lazy_static! {
         Arc::new((Mutex::new(false), Condvar::new()));
     static ref SHARED_SHOULD_STOP_FLAG: Arc<AtomicBool> =
         Arc::new(AtomicBool::new(false));
+    static ref SHARED_SENDING_MESSAGE_FLAG: Arc<AtomicBool> =
+        Arc::new(AtomicBool::new(false));
+    static ref SHARED_SENDING_COMPLETED: Arc<(Mutex<bool>, Condvar)> =
+        Arc::new((Mutex::new(false), Condvar::new()));
 }
 
 #[tokio::main]
@@ -110,6 +116,7 @@ async fn main() {
 
     let connected_device = SHARED_CONNECTED_DEVICE.clone();
     let device_available = SHARED_DEVICE_AVAILABILITY_FLAG.clone();
+    let sending_message_flag = SHARED_SENDING_MESSAGE_FLAG.clone();
 
     tauri::Builder::default()
         .menu(if cfg!(target_os = "macos") {
@@ -122,6 +129,7 @@ async fn main() {
             let connected_device_clone = connected_device.clone();
             let device_available_clone = device_available.clone();
             let should_stop_clone = Arc::clone(&SHARED_SHOULD_STOP_FLAG);
+            let sending_message_flag_clone = sending_message_flag.clone();
 
             std::thread::spawn(move || {
                 let async_block = async move {
@@ -141,43 +149,84 @@ async fn main() {
                             connected_device_clone.lock().unwrap();
                         if let Some(ref connected_device) = &*connected_device_lock {
                             println!("Starting to read!");
-                            print!("w");
-                            println!("Checking for is_recording");
                             let mut message = String::new();
 
                             let mut buf_reader_lock =
                                 connected_device.buf_reader.lock().await;
-                            while let Ok(byte) = buf_reader_lock.read_u8().await {
+                            while let Ok(result) = tokio::time::timeout(
+                                Duration::from_millis(100),
+                                buf_reader_lock.read_u8(),
+                            )
+                            .await
+                            {
                                 if should_stop_clone.load(Ordering::Relaxed) {
                                     break;
                                 }
-                                print!("o");
-                                if byte == b'\n' {
-                                    // Process the complete message
-                                    println!("Received message: {:?}", message);
-                                    let mut csv_reader = csv::ReaderBuilder::new()
-                                        .has_headers(false)
-                                        .from_reader(message.as_bytes());
-                                    for result in csv_reader.deserialize::<Telemetry>()
-                                    {
-                                        let telemetry = result.unwrap();
-                                        // println!("{:#?}", telemetry);
+                                if sending_message_flag_clone.load(Ordering::Relaxed) {
+                                    println!(
+                                        "Preparing to drop the lock to send a msg"
+                                    );
+                                    // Close the lock to allow the sender to use the device
+                                    drop(buf_reader_lock);
 
-                                        let mut telemetry_data_lock = connected_device
-                                            .telemetry_data
-                                            .lock()
-                                            .unwrap();
-                                        app_copy
-                                            .emit_all("graph-data", telemetry.clone())
-                                            .expect("failed to emit event");
-                                        telemetry_data_lock.push(telemetry);
+                                    // Get the sending completed condition variable and lock
+                                    let (lock, cvar) =
+                                        &*SHARED_SENDING_COMPLETED.clone();
+
+                                    // Wait for the sender to signal that it's finished
+                                    let mut sending_completed = lock.lock().unwrap();
+                                    while !*sending_completed {
+                                        println!("Waiting for condvar to click");
+                                        sending_completed =
+                                            cvar.wait(sending_completed).unwrap();
                                     }
+                                    println!("After condvar");
+                                    // Reset the sending completed flag
+                                    *sending_completed = false;
 
-                                    // Reset the message buffer for the next message
-                                    message.clear();
-                                } else {
-                                    // Append the byte to the current message
-                                    message.push(char::from(byte));
+                                    // Reacquire the lock on the device
+                                    buf_reader_lock =
+                                        connected_device.buf_reader.lock().await;
+
+                                    // Reset the sending message flag
+                                    sending_message_flag_clone
+                                        .store(false, Ordering::Relaxed);
+
+                                    continue;
+                                }
+                                if let Ok(byte) = result {
+                                    if byte == b'\n' {
+                                        // Process the complete message
+                                        println!("Received message: {:?}", message);
+                                        let mut csv_reader = csv::ReaderBuilder::new()
+                                            .has_headers(false)
+                                            .from_reader(message.as_bytes());
+                                        for result in
+                                            csv_reader.deserialize::<Telemetry>()
+                                        {
+                                            let telemetry = result.unwrap();
+                                            // println!("{:#?}", telemetry);
+
+                                            let mut telemetry_data_lock =
+                                                connected_device
+                                                    .telemetry_data
+                                                    .lock()
+                                                    .unwrap();
+                                            app_copy
+                                                .emit_all(
+                                                    "graph-data",
+                                                    telemetry.clone(),
+                                                )
+                                                .expect("failed to emit event");
+                                            telemetry_data_lock.push(telemetry);
+                                        }
+
+                                        // Reset the message buffer for the next message
+                                        message.clear();
+                                    } else {
+                                        // Append the byte to the current message
+                                        message.push(char::from(byte));
+                                    }
                                 }
                             }
                         }
@@ -193,7 +242,8 @@ async fn main() {
             get_serial_ports_command,
             connect_to_device,
             start_recording,
-            stop_recording_and_save_csv
+            stop_recording_and_save_csv,
+            send_message_to_device
         ])
         .run(context)
         .expect("error while running tauri application");
@@ -261,6 +311,7 @@ async fn stop_recording_and_save_csv(output_file: String) -> Result<(), String> 
         let telemetry_data_lock = connected_device.telemetry_data.lock().unwrap();
         let mut csv_writer = csv::Writer::from_path(output_file)
             .map_err(|e| format!("Error creating CSV file: {}", e))?;
+
         for telemetry in telemetry_data_lock.iter() {
             csv_writer
                 .serialize(telemetry)
@@ -293,6 +344,9 @@ fn get_serial_ports_command() -> Vec<String> {
 
 #[tauri::command]
 async fn send_message_to_device(message: String) -> Result<(), String> {
+    let sending_message_clone = Arc::clone(&SHARED_SENDING_MESSAGE_FLAG);
+    sending_message_clone.store(true, Ordering::Relaxed);
+
     let connected_device_lock = SHARED_CONNECTED_DEVICE.lock().unwrap();
     if let Some(connected_device) = connected_device_lock.as_ref() {
         // Clone the BufReader so we can move it into the async block
@@ -301,7 +355,18 @@ async fn send_message_to_device(message: String) -> Result<(), String> {
         // Spawn a new task to write the message
         tokio::spawn(async move {
             let mut lock = buf_reader.lock().await;
+            println!("Got the lock, about to send: {}", message);
             let write_result = lock.write_all(message.as_bytes()).await;
+            println!("After sending");
+
+            // Reset the sending message flag
+            sending_message_clone.store(false, Ordering::Relaxed);
+
+            // Signal that the sending operation has completed
+            let (lock, cvar) = &*SHARED_SENDING_COMPLETED.clone();
+            let mut sending_completed = lock.lock().unwrap();
+            *sending_completed = true;
+            cvar.notify_one();
 
             match write_result {
                 Ok(_) => println!("Message sent successfully"),

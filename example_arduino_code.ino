@@ -4,19 +4,23 @@
 #include <Arduino.h>
 
 // Function to increment time by one second
-String incrementTime(String time) {
+String incrementTime(String time)
+{
   int hours = time.substring(0, 2).toInt();
   int minutes = time.substring(3, 5).toInt();
   int seconds = time.substring(6, 8).toInt();
 
   seconds++;
-  if (seconds >= 60) {
+  if (seconds >= 60)
+  {
     seconds = 0;
     minutes++;
-    if (minutes >= 60) {
+    if (minutes >= 60)
+    {
       minutes = 0;
       hours++;
-      if (hours >= 24) {
+      if (hours >= 24)
+      {
         hours = 0;
       }
     }
@@ -27,11 +31,13 @@ String incrementTime(String time) {
                 (seconds < 10 ? "0" : "") + String(seconds));
 }
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
 }
 
-void loop() {
+void loop()
+{
   // Dummy data
   static int team_id = 1082;
   static String mission_time = "13:14:02";
@@ -71,28 +77,49 @@ void loop() {
 
   // Concatenate and send data over serial port
   Serial.println(
-    String(team_id) + "," +
-    mission_time + "," +
-    String(packet_count) + "," +
-    mode + "," +
-    state + "," +
-    String(altitude) + "," +
-    hs_deployed + "," +
-    pc_deployed + "," +
-    mast_raised + "," +
-    String(temperature) + "," +
-    String(pressure) + "," +
-    String(voltage) + "," +
-    gps_time + "," +
-    String(gps_altitude) + "," +
-    String(gps_latitude) + "," +
-    String(gps_longitude) + "," +
-    String(gps_sats) + "," +
-    String(tilt_x) + "," +
-    String(tilt_y) + "," +
-    cmd_echo
-  );
+      String(team_id) + "," +
+      mission_time + "," +
+      String(packet_count) + "," +
+      mode + "," +
+      state + "," +
+      String(altitude) + "," +
+      hs_deployed + "," +
+      pc_deployed + "," +
+      mast_raised + "," +
+      String(temperature) + "," +
+      String(pressure) + "," +
+      String(voltage) + "," +
+      gps_time + "," +
+      String(gps_altitude) + "," +
+      String(gps_latitude) + "," +
+      String(gps_longitude) + "," +
+      String(gps_sats) + "," +
+      String(tilt_x) + "," +
+      String(tilt_y) + "," +
+      cmd_echo);
+  String incomingCommand = "";
+  // This will hold your incoming command
 
+  // Echo back any received commands
+  while (Serial.available() > 0)
+  {
+    char receivedChar = Serial.read(); // Read a character from the serial buffer
+
+    if (receivedChar != '\n' && receivedChar != '\r')
+    {
+      // If the character is not a newline or carriage return, append it to the command
+      incomingCommand += receivedChar;
+    }
+    else if (incomingCommand.length() > 0)
+    {
+      // If a newline or carriage return is encountered and the command is not empty,
+      // set cmd_echo to the received command and clear the incoming command
+      cmd_echo = incomingCommand;
+      incomingCommand = "";
+    }
+
+    delay(5); // Optional delay to allow buffer to fill
+  }
   // Wait for a second before sending the next set of data
   delay(1000);
 }

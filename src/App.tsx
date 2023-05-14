@@ -7,7 +7,6 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { dialog } from '@tauri-apps/api';
-// import 'leaflet';
 
 import {
     CategoryScale,
@@ -64,9 +63,9 @@ interface GraphData {
     tilty: number[];
 }
 
-async function saveFile() {
+async function getFileSavePath() {
     const result = await dialog.save({
-        defaultPath: 'data.csv',
+        defaultPath: 'flight_data.csv',
     });
 
     if (result === null) {
@@ -76,6 +75,7 @@ async function saveFile() {
     }
     return result;
 }
+
 
 const DisplayLabel = ({ title, value }: DisplayLabelProps) => {
     return (
@@ -137,9 +137,20 @@ function App() {
         fetchDevices();
     }, []);
 
-    const stopAndSaveCSV = async () => {
-        setIsRecording(false);
+    const sendDummyMessage = async () => {
+        await invoke('send_message_to_device', { message: "DUPA" })
+            .then(() => console.log("Message sent successfully"))
+            .catch((e) => console.error("Error sending message to device", e));
+    }
 
+    const stopAndSaveCSV = async () => {
+
+        // Get the file path from the user
+        const filePath = await getFileSavePath();
+        if (filePath === null) {
+            console.log('File save was canceled');
+            return; // Exit the function early
+        }
         // Unlisten the event
         if (graphDataListener) {
             graphDataListener.then((unlisten: UnlistenFn) => {
@@ -147,12 +158,7 @@ function App() {
             });
             setGraphDataListener(null); // Reset the listener state
         }
-        // Get the file path from the user
-        const filePath = await saveFile();
-        if (filePath === null) {
-            console.log('File save was canceled');
-            return; // Exit the function early
-        }
+        setIsRecording(false);
         console.log("Path for the file: ", filePath);
 
         try {
@@ -331,15 +337,14 @@ function App() {
                 {/* Third Column */}
                 <div>
                     <Button text="Start" onClick={startConnection} disabled={isConnected} />
-                    <Button text="Start Telemetry" disabled={isConnected} />
-                    <Button text="Stop Telemetry" />
                     <Button text="Stop and Save CSV" onClick={stopAndSaveCSV} />
-                    <Button text="Load CSV" disabled={isConnected} />
+                    <Button text="Load CSV Simulation" disabled={isConnected} />
                 </div>
                 {/* Fourth Column */}
                 <div>
-                    <Button text="Stop and Save CSV" />
+                    <Button text="Dupa Button" onClick={sendDummyMessage} />
                     <Button text="Simulation Enable" />
+
                     <Button text="Simulation Activate" />
                     <Button text="Simulation Disable" />
 
