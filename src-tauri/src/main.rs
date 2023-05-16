@@ -3,7 +3,7 @@
     windows_subsystem = "windows"
 )]
 
-use csv::WriterBuilder;
+
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serialport::available_ports;
@@ -356,6 +356,8 @@ async fn send_message_to_device(message: String) -> Result<(), String> {
         tokio::spawn(async move {
             let mut lock = buf_reader.lock().await;
             println!("Got the lock, about to send: {}", message);
+            let mut message = message.clone();
+            message += "\n";
             let write_result = lock.write_all(message.as_bytes()).await;
             println!("After sending");
 

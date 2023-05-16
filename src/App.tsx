@@ -121,6 +121,7 @@ function App() {
     const [isConnected, setIsConnected] = useState<boolean>(false);
     const [isRecording, setIsRecording] = useState<boolean>(false);
     const [graphDataListener, setGraphDataListener] = useState<Promise<UnlistenFn> | null>(null);
+    const [message, setMessage] = useState<string>("");
 
 
     async function fetchDevices() {
@@ -137,12 +138,17 @@ function App() {
         fetchDevices();
     }, []);
 
-    const sendDummyMessage = async () => {
-        await invoke('send_message_to_device', { message: "DUPA" })
-            .then(() => console.log("Message sent successfully"))
+    const sendMessage = async () => {
+        await invoke('send_message_to_device', { message })
+            .then(() => {
+                console.log("Message sent successfully");
+                setMessage("");
+            })
             .catch((e) => console.error("Error sending message to device", e));
-    }
-
+    };
+    const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setMessage(event.target.value);
+    };
     const stopAndSaveCSV = async () => {
 
         // Get the file path from the user
@@ -338,15 +344,15 @@ function App() {
                 <div>
                     <Button text="Start" onClick={startConnection} disabled={isConnected} />
                     <Button text="Stop and Save CSV" onClick={stopAndSaveCSV} />
-                    <Button text="Load CSV Simulation" disabled={isConnected} />
+                    <Button text="Load CSV Simulation" disabled={true} />
                 </div>
                 {/* Fourth Column */}
                 <div>
-                    <Button text="Dupa Button" onClick={sendDummyMessage} />
-                    <Button text="Simulation Enable" />
+                    {/* <Button text="Dupa Button" onClick={sendMessage} /> */}
+                    <Button text="Simulation Enable" disabled={true} />
 
-                    <Button text="Simulation Activate" />
-                    <Button text="Simulation Disable" />
+                    <Button text="Simulation Activate" disabled={true} />
+                    <Button text="Simulation Disable" disabled={true} />
 
                     <Button text="Refresh Devices" onClick={fetchDevices} disabled={isConnected} />
 
@@ -668,9 +674,14 @@ function App() {
 
                     </TabPanel>
                     <TabPanel className="plot-container">
-                        {/* TBD */}
+                        Mapa TBD
                     </TabPanel>
-
+                    <TabPanel className="plot-container" >
+                        <div>
+                            <input type="text" value={message} onChange={handleInputChange} />
+                            <Button text="Send" onClick={sendMessage} disabled={!isConnected} />
+                        </div>
+                    </TabPanel>
                 </Tabs>
             </div>
         </div >
