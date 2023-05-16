@@ -43,7 +43,7 @@ of the cloned repository and run:
     For release build (that will create an installer for your operating system):
 
     ```bash
-    cargo tauri release
+    cargo tauri build
     ```
 
 7. If your build failed saying that tsc is not a known command you have to explicitly
