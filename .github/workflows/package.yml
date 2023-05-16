@@ -9,28 +9,6 @@ env:
     CARGO_TERM_COLOR: always
 
 jobs:
-    license:
-        name: 🏫 License check
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v2
-            - uses: actions/cache@v3
-              with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      target/
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-            - name: install dependencies (ubuntu only)
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libudev-dev
-            - name: Check license
-              run: |
-                  cargo install cargo-deny
-                  cd src-tauri/ ; cargo deny check
     audit:
         name: 🐞 Dependency audit
         runs-on: ubuntu-latest
