@@ -24,8 +24,12 @@ jobs:
                     target/
                 key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
             - uses: actions/checkout@v2
+            - name: install dependencies (ubuntu only)
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libudev-dev
             - name: Check linting
               run: |
                   rustup component add clippy
                   set env RUSTFLAGS="-Dwarnings"
-                  cargo clippy --workspace -- -D warnings
+                  cd src-tauri/ ; cargo clippy --workspace -- -D warnings
