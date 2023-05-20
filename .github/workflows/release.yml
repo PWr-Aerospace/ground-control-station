@@ -41,9 +41,7 @@ jobs:
         sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libudev-dev
 
     - name: Build release
-      run:
-        cargo install tauri-cli
-        cargo tauri build
+      run: cargo install tauri-cli ; cargo tauri build
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v2
