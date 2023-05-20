@@ -7,7 +7,7 @@
     "withGlobalTauri": false
   },
   "package": {
-    "productName": "ground-control-station",
+    "productName": "Ground Control Station",
     "version": "0.0.0"
   },
   "tauri": {
@@ -45,7 +45,7 @@
       "active": false
     },
     "windows": [{
-      "fullscreen": true,
+      "fullscreen": false,
       "resizable": true,
       "title": "Ground Control Station",
       "width": 1920,

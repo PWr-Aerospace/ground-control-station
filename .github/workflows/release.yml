@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-    name: 🔨 Build release
+    name: 🚀 Build release
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -65,7 +65,8 @@ jobs:
 
     - name: Get the version
       id: get_version
-      run: echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/} | sed 's/[^0-9.]*//g'
+      run: echo ::set-output name=VERSION::$(echo ${GITHUB_REF#refs/tags/} | sed 's/[^0-9.]*//g')
+      shell: bash
 
     - name: Create Release
       id: create_release

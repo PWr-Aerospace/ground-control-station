@@ -1,7 +1,6 @@
 # Ground Control Station
 
 <!-- markdownlint-disable MD013 -->
-<!-- ![Crates.io](https://img.shields.io/crates/l/ground-control-station) ![Crates.io](https://img.shields.io/crates/v/ground-control-station) ![docs.rs](https://img.shields.io/docsrs/ground-control-station) -->
 [![🧪 Tests](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/tests.yml/badge.svg)](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/tests.yml) [![🖋 Check linting](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/lint.yml/badge.svg)](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/lint.yml) [![🔨 Build](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/build.yml/badge.svg)](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/build.yml) [![📦 Package](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/package.yml/badge.svg)](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/package.yml) [![👔 Check formatting](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/format.yml/badge.svg)](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/format.yml)
 <!-- markdownlint-enable MD013 -->
 
@@ -12,7 +11,7 @@ CanSat Ground Control Station.
 In order to locally run development versions and build your own follow these steps to setup your local environment:
 
 1. Install rust following instructions on the official web page: <https://www.rust-lang.org/tools/install>
-2. Install `node` and `npm`, node has to be at least version 16
+2. Install `node` and `npm`, node has to be at least version 16, preferably 20
 3. Install the `tauri` project management plugin for `cargo` (this will take a while):
 
     ```bash
