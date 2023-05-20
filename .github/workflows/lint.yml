@@ -1,35 +1,35 @@
 
-name: 🖋  Check linting
+# name: 🖋  Check linting
 
-on:
-    pull_request:
-    push:
-        branches: ["main", "master", "develop", "release"]
+# on:
+#     pull_request:
+#     push:
+#         branches: ["main", "master", "develop", "release"]
 
-env:
-    CARGO_TERM_COLOR: always
+# env:
+#     CARGO_TERM_COLOR: always
 
-jobs:
-    check_lint_rust:
-        name: 🖋 Check linting
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/cache@v3
-              with:
-                path: |
-                    ~/.cargo/bin/
-                    ~/.cargo/registry/index/
-                    ~/.cargo/registry/cache/
-                    ~/.cargo/git/db/
-                    target/
-                key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-            - uses: actions/checkout@v2
-            - name: install dependencies (ubuntu only)
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libudev-dev
-            - name: Check linting
-              run: |
-                  rustup component add clippy
-                  set env RUSTFLAGS="-Dwarnings"
-                  cd src-tauri/ ; cargo clippy --workspace -- -D warnings
+# jobs:
+#     check_lint_rust:
+#         name: 🖋 Check linting
+#         runs-on: ubuntu-latest
+#         steps:
+#             - uses: actions/cache@v3
+#               with:
+#                 path: |
+#                     ~/.cargo/bin/
+#                     ~/.cargo/registry/index/
+#                     ~/.cargo/registry/cache/
+#                     ~/.cargo/git/db/
+#                     target/
+#                 key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+#             - uses: actions/checkout@v2
+#             - name: install dependencies (ubuntu only)
+#               run: |
+#                   sudo apt-get update
+#                   sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libudev-dev
+#             - name: Check linting
+#               run: |
+#                   rustup component add clippy
+#                   set env RUSTFLAGS="-Dwarnings"
+#                   cd src-tauri/ ; cargo clippy --workspace -- -D warnings

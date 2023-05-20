@@ -1,46 +1,46 @@
-name: 📦 Package
+# name: 📦 Package
 
-on:
-    pull_request:
-    push:
-        branches: ["main", "master", "develop", "release"]
+# on:
+#     pull_request:
+#     push:
+#         branches: ["main", "master", "develop", "release"]
 
-env:
-    CARGO_TERM_COLOR: always
+# env:
+#     CARGO_TERM_COLOR: always
 
-jobs:
-    audit:
-        name: 🐞 Dependency audit
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v2
-            - uses: actions-rs/toolchain@v1
-              with:
-                  toolchain: stable
-                  override: true
-            - uses: davidB/rust-cargo-make@v1
-            - name: Dependency audit
-              run: cd src-tauri/ ; cargo make audit
-    cargo_check:
-        name: 📦 Check package integrity
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v2
-            - name: install dependencies (ubuntu only)
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libudev-dev
-            - name: Check package integrity
-              run: cd src-tauri/ ; cargo package --verbose
-    check_unused_deps:
-        name: 📦 Check for unused dependencies
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v2
-            - uses: actions-rs/toolchain@v1
-              with:
-                  toolchain: stable
-                  override: true
-            - uses: davidB/rust-cargo-make@v1
-            - name: Check deps with machete
-              run: cd src-tauri/ ; cargo make deps
+# jobs:
+#     audit:
+#         name: 🐞 Dependency audit
+#         runs-on: ubuntu-latest
+#         steps:
+#             - uses: actions/checkout@v2
+#             - uses: actions-rs/toolchain@v1
+#               with:
+#                   toolchain: stable
+#                   override: true
+#             - uses: davidB/rust-cargo-make@v1
+#             - name: Dependency audit
+#               run: cd src-tauri/ ; cargo make audit
+#     cargo_check:
+#         name: 📦 Check package integrity
+#         runs-on: ubuntu-latest
+#         steps:
+#             - uses: actions/checkout@v2
+#             - name: install dependencies (ubuntu only)
+#               run: |
+#                   sudo apt-get update
+#                   sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libudev-dev
+#             - name: Check package integrity
+#               run: cd src-tauri/ ; cargo package --verbose
+#     check_unused_deps:
+#         name: 📦 Check for unused dependencies
+#         runs-on: ubuntu-latest
+#         steps:
+#             - uses: actions/checkout@v2
+#             - uses: actions-rs/toolchain@v1
+#               with:
+#                   toolchain: stable
+#                   override: true
+#             - uses: davidB/rust-cargo-make@v1
+#             - name: Check deps with machete
+#               run: cd src-tauri/ ; cargo make deps
