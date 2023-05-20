@@ -19,19 +19,25 @@ In order to locally run development versions and build your own follow these ste
     cargo install tauri-cli
     ```
 
-4. Install the local JS server `vite` using npm
+4. Install the local JS server `vite` using npm:
 
     ```bash
     npm install vite
     ```
 
-5. If you are on `Ubuntu` install these packages using `apt`:
+5. Install node dependencies required by the project:
+
+    ```bash
+    npm install
+    ```
+
+6. If you are on `Ubuntu` install these packages using `apt`:
 
     ```bash
     sudo apt-get update ; sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libudev-dev
     ```
 
-6. Now you should be capable of building the application. Navigate to the root
+7. Now you should be capable of building the application. Navigate to the root
 of the cloned repository and run:
 
     For a development build:
@@ -46,7 +52,7 @@ of the cloned repository and run:
     cargo tauri build
     ```
 
-7. If your build failed saying that tsc is not a known command you have to explicitly
+8. If your build failed saying that tsc is not a known command you have to explicitly
     install typescript by running:
 
     ```bash
