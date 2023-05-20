@@ -365,6 +365,7 @@ async fn send_message_to_device(message: String) -> Result<(), String> {
 
             // Signal that the sending operation has completed
             let (lock, cvar) = &*SHARED_SENDING_COMPLETED.clone();
+            println!("Trying to obtain the lock to say its sent");
             let mut sending_completed = lock.lock().unwrap();
             *sending_completed = true;
             cvar.notify_one();
