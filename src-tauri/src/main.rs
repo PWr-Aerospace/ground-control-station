@@ -117,7 +117,7 @@ async fn connect_to_device(
 
     match builder.open_native_async() {
         Ok(serial_stream) => {
-            let (mut read_port, mut write_port) = split(serial_stream);
+            let (mut read_port, write_port) = split(serial_stream);
 
             println!("Connected!");
 
@@ -169,7 +169,7 @@ async fn connect_to_device(
 #[tauri::command(rename_all = "snake_case")]
 async fn stop_recording_and_save_csv(output_file: String) -> Result<(), String> {
     println!("Got the lock");
-    let mut telemetry = TELEMETRY.lock().await;
+    let telemetry = TELEMETRY.lock().await;
 
     let mut csv_writer = csv::Writer::from_path(output_file)
         .map_err(|e| format!("Error creating CSV file: {}", e))?;
