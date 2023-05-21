@@ -6,19 +6,11 @@
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serialport::available_ports;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Condvar;
-use std::{
-    env,
-    sync::{Arc, Mutex},
-};
-use tauri::Manager;
-use tokio::io::AsyncWriteExt;
-use tokio::io::{AsyncReadExt, BufReader};
-use tokio::time::Duration;
-use tokio_serial::SerialPortBuilderExt;
+use std::{env, sync::Arc};
+use tauri::{AppHandle, Manager};
+use tokio::io::{split, AsyncReadExt, AsyncWriteExt, WriteHalf};
+use tokio_serial::{SerialPortBuilderExt, SerialStream};
 
-// use futures_util::future::try_future::TryFutureExt;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[allow(dead_code)]
 struct Telemetry {
@@ -80,42 +72,16 @@ struct Telemetry {
     cmd_echo: String,
 }
 
-struct ConnectedDevice {
-    buf_reader: Arc<tokio::sync::Mutex<BufReader<tokio_serial::SerialStream>>>,
-    is_recording: AtomicBool,
-    telemetry_data: Mutex<Vec<Telemetry>>,
-}
-
-impl ConnectedDevice {
-    fn new(buf_reader: BufReader<tokio_serial::SerialStream>) -> Self {
-        Self {
-            buf_reader: Arc::new(tokio::sync::Mutex::new(buf_reader)),
-            is_recording: AtomicBool::new(true),
-            telemetry_data: Mutex::new(vec![]),
-        }
-    }
-}
-
 lazy_static! {
-    static ref SHARED_CONNECTED_DEVICE: Arc<Mutex<Option<ConnectedDevice>>> =
-        Arc::new(Mutex::new(None));
-    static ref SHARED_DEVICE_AVAILABILITY_FLAG: Arc<(Mutex<bool>, Condvar)> =
-        Arc::new((Mutex::new(false), Condvar::new()));
-    static ref SHARED_SHOULD_STOP_FLAG: Arc<AtomicBool> =
-        Arc::new(AtomicBool::new(false));
-    static ref SHARED_SENDING_MESSAGE_FLAG: Arc<AtomicBool> =
-        Arc::new(AtomicBool::new(false));
-    static ref SHARED_SENDING_COMPLETED: Arc<(Mutex<bool>, Condvar)> =
-        Arc::new((Mutex::new(false), Condvar::new()));
+    static ref SHARED_SENDER: Arc<tokio::sync::Mutex<Option<WriteHalf<SerialStream>>>> =
+        Arc::new(tokio::sync::Mutex::new(None));
+    static ref TELEMETRY: Arc<tokio::sync::Mutex<Vec<Telemetry>>> =
+        Arc::new(tokio::sync::Mutex::new(vec![]));
 }
 
 #[tokio::main]
 async fn main() {
     let context = tauri::generate_context!();
-
-    let connected_device = SHARED_CONNECTED_DEVICE.clone();
-    let device_available = SHARED_DEVICE_AVAILABILITY_FLAG.clone();
-    let sending_message_flag = SHARED_SENDING_MESSAGE_FLAG.clone();
 
     tauri::Builder::default()
         .menu(if cfg!(target_os = "macos") {
@@ -123,124 +89,10 @@ async fn main() {
         } else {
             tauri::Menu::default()
         })
-        .on_page_load(move |app, _| {
-            let app_copy = app;
-            let connected_device_clone = connected_device.clone();
-            let device_available_clone = device_available.clone();
-            let should_stop_clone = Arc::clone(&SHARED_SHOULD_STOP_FLAG);
-            let sending_message_flag_clone = sending_message_flag.clone();
-
-            std::thread::spawn(move || {
-                let async_block = async move {
-                    println!("Got the lock");
-
-                    loop {
-                        println!("In the main loop");
-                        let (lock, cvar) = &*device_available_clone;
-                        let mut device_is_available = lock.lock().unwrap();
-
-                        while !*device_is_available {
-                            device_is_available =
-                                cvar.wait(device_is_available).unwrap();
-                        }
-
-                        let connected_device_lock =
-                            connected_device_clone.lock().unwrap();
-                        if let Some(ref connected_device) = &*connected_device_lock {
-                            println!("Starting to read!");
-                            let mut message = String::new();
-
-                            let mut buf_reader_lock =
-                                connected_device.buf_reader.lock().await;
-                            while let Ok(result) = tokio::time::timeout(
-                                Duration::from_millis(100),
-                                buf_reader_lock.read_u8(),
-                            )
-                            .await
-                            {
-                                if should_stop_clone.load(Ordering::Relaxed) {
-                                    break;
-                                }
-                                if sending_message_flag_clone.load(Ordering::Relaxed) {
-                                    println!(
-                                        "Preparing to drop the lock to send a msg"
-                                    );
-                                    // Close the lock to allow the sender to use the device
-                                    drop(buf_reader_lock);
-
-                                    // Get the sending completed condition variable and lock
-                                    let (lock, cvar) =
-                                        &*SHARED_SENDING_COMPLETED.clone();
-
-                                    // Wait for the sender to signal that it's finished
-                                    let mut sending_completed = lock.lock().unwrap();
-                                    while !*sending_completed {
-                                        println!("Waiting for condvar to click");
-                                        sending_completed =
-                                            cvar.wait(sending_completed).unwrap();
-                                    }
-                                    println!("After condvar");
-                                    // Reset the sending completed flag
-                                    *sending_completed = false;
-
-                                    // Reacquire the lock on the device
-                                    buf_reader_lock =
-                                        connected_device.buf_reader.lock().await;
-
-                                    // Reset the sending message flag
-                                    sending_message_flag_clone
-                                        .store(false, Ordering::Relaxed);
-
-                                    continue;
-                                }
-                                if let Ok(byte) = result {
-                                    if byte == b'\n' {
-                                        // Process the complete message
-                                        println!("Received message: {:?}", message);
-                                        let mut csv_reader = csv::ReaderBuilder::new()
-                                            .has_headers(false)
-                                            .from_reader(message.as_bytes());
-                                        for result in
-                                            csv_reader.deserialize::<Telemetry>()
-                                        {
-                                            let telemetry = result.unwrap();
-                                            // println!("{:#?}", telemetry);
-
-                                            let mut telemetry_data_lock =
-                                                connected_device
-                                                    .telemetry_data
-                                                    .lock()
-                                                    .unwrap();
-                                            app_copy
-                                                .emit_all(
-                                                    "graph-data",
-                                                    telemetry.clone(),
-                                                )
-                                                .expect("failed to emit event");
-                                            telemetry_data_lock.push(telemetry);
-                                        }
-
-                                        // Reset the message buffer for the next message
-                                        message.clear();
-                                    } else {
-                                        // Append the byte to the current message
-                                        message.push(char::from(byte));
-                                    }
-                                }
-                            }
-                        }
-                        print!("-");
-                    }
-                };
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(async_block);
-            });
-        })
+        .on_page_load(move |_, _| {})
         .invoke_handler(tauri::generate_handler![
             get_serial_ports_command,
             connect_to_device,
-            start_recording,
             stop_recording_and_save_csv,
             send_message_to_device
         ])
@@ -249,9 +101,14 @@ async fn main() {
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn connect_to_device(device: String, baudrate: i32) -> Result<(), String> {
+async fn connect_to_device(
+    app_handle: AppHandle,
+    device: String,
+    baudrate: i32,
+) -> Result<(), String> {
     println!("Connecting to: {}", device);
     println!("Connecting with baud rate: {}", baudrate);
+
     let mut builder = tokio_serial::new(device, baudrate.try_into().unwrap());
     builder = builder
         .flow_control(tokio_serial::FlowControl::None)
@@ -260,21 +117,48 @@ async fn connect_to_device(device: String, baudrate: i32) -> Result<(), String> 
 
     match builder.open_native_async() {
         Ok(serial_stream) => {
-            let buf_reader = BufReader::with_capacity(4096, serial_stream);
-            let mut connected_device = ConnectedDevice::new(buf_reader);
-            connected_device.is_recording = AtomicBool::new(true);
-            connected_device.is_recording.store(true, Ordering::Relaxed);
-            let mut connected_device_lock = SHARED_CONNECTED_DEVICE.lock().unwrap();
-            let device_available = SHARED_DEVICE_AVAILABILITY_FLAG.clone();
-            // Assign the newly created connected device to the shared connected device
-            *connected_device_lock = Some(connected_device);
+            let (mut read_port, mut write_port) = split(serial_stream);
+
             println!("Connected!");
 
-            // Send a signal to the main reader that the device is ready to be read
-            let (lock, cvar) = &*device_available;
-            let mut device_is_available = lock.lock().unwrap();
-            *device_is_available = true;
-            cvar.notify_one();
+            *SHARED_SENDER.lock().await = Some(write_port);
+            println!("Passed the shared write port to the aliens");
+
+            println!("Spawning reading thread");
+            // Read task
+            tokio::spawn(async move {
+                let mut message = String::new();
+                loop {
+                    match read_port.read_u8().await {
+                        Ok(byte) => {
+                            if byte == b'\n' {
+                                println!("Received: {:?}", message);
+
+                                let mut csv_reader = csv::ReaderBuilder::new()
+                                    .has_headers(false)
+                                    .from_reader(message.as_bytes());
+                                for result in csv_reader.deserialize::<Telemetry>() {
+                                    let telemetry = result.unwrap();
+                                    // println!("{:#?}", telemetry);
+
+                                    let mut all_telemetry = TELEMETRY.lock().await;
+                                    app_handle
+                                        .emit_all("graph-data", telemetry.clone())
+                                        .expect("failed to emit event");
+                                    all_telemetry.push(telemetry.clone());
+                                }
+
+                                message.clear();
+                            } else {
+                                message.push(char::from(byte));
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to read from serial_port: {}", e);
+                        }
+                    }
+                }
+            });
 
             Ok(())
         }
@@ -283,46 +167,23 @@ async fn connect_to_device(device: String, baudrate: i32) -> Result<(), String> 
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn start_recording() -> Result<(), String> {
-    let connected_device_lock = SHARED_CONNECTED_DEVICE.lock().unwrap();
-    if let Some(connected_device) = connected_device_lock.as_ref() {
-        connected_device.is_recording.store(true, Ordering::Relaxed);
-        Ok(())
-    } else {
-        Err("No connected device found.".to_string())
-    }
-}
-
-#[tauri::command(rename_all = "snake_case")]
 async fn stop_recording_and_save_csv(output_file: String) -> Result<(), String> {
-    println!("Trying to get the lock");
-    let should_stop_clone = Arc::clone(&SHARED_SHOULD_STOP_FLAG);
-    should_stop_clone.store(true, Ordering::Relaxed);
-
-    let mut connected_device_lock = SHARED_CONNECTED_DEVICE.lock().unwrap();
     println!("Got the lock");
+    let mut telemetry = TELEMETRY.lock().await;
 
-    if let Some(connected_device) = connected_device_lock.as_mut() {
-        connected_device
-            .is_recording
-            .store(false, Ordering::Relaxed);
+    let mut csv_writer = csv::Writer::from_path(output_file)
+        .map_err(|e| format!("Error creating CSV file: {}", e))?;
 
-        let telemetry_data_lock = connected_device.telemetry_data.lock().unwrap();
-        let mut csv_writer = csv::Writer::from_path(output_file)
-            .map_err(|e| format!("Error creating CSV file: {}", e))?;
-
-        for telemetry in telemetry_data_lock.iter() {
-            csv_writer
-                .serialize(telemetry)
-                .map_err(|e| format!("Error writing CSV data: {}", e))?;
-        }
+    for t in telemetry.iter() {
         csv_writer
-            .flush()
-            .map_err(|e| format!("Error flushing CSV data: {}", e))?;
-        Ok(())
-    } else {
-        Err("No connected device found.".to_string())
+            .serialize(t)
+            .map_err(|e| format!("Error writing CSV data: {}", e))?;
     }
+    csv_writer
+        .flush()
+        .map_err(|e| format!("Error flushing CSV data: {}", e))?;
+
+    Ok(())
 }
 
 fn get_serial_ports() -> Vec<String> {
@@ -343,38 +204,20 @@ fn get_serial_ports_command() -> Vec<String> {
 
 #[tauri::command]
 async fn send_message_to_device(message: String) -> Result<(), String> {
-    let sending_message_clone = Arc::clone(&SHARED_SENDING_MESSAGE_FLAG);
-    sending_message_clone.store(true, Ordering::Relaxed);
-
-    let connected_device_lock = SHARED_CONNECTED_DEVICE.lock().unwrap();
-    if let Some(connected_device) = connected_device_lock.as_ref() {
-        // Clone the BufReader so we can move it into the async block
-        let buf_reader = Arc::clone(&connected_device.buf_reader);
-
-        // Spawn a new task to write the message
-        tokio::spawn(async move {
-            let mut lock = buf_reader.lock().await;
-            println!("Got the lock, about to send: {}", message);
-            let mut message = message.clone();
-            message += "\n";
-            let write_result = lock.write_all(message.as_bytes()).await;
-            println!("After sending");
-
-            // Reset the sending message flag
-            sending_message_clone.store(false, Ordering::Relaxed);
-
-            // Signal that the sending operation has completed
-            let (lock, cvar) = &*SHARED_SENDING_COMPLETED.clone();
-            let mut sending_completed = lock.lock().unwrap();
-            *sending_completed = true;
-            cvar.notify_one();
-
-            match write_result {
-                Ok(_) => println!("Message sent successfully"),
-                Err(e) => eprintln!("Error writing message to device: {}", e),
+    println!("About to send");
+    let new_message = message + "\n";
+    let mut shared_sender_lock = SHARED_SENDER.lock().await;
+    println!("Got lock on the sender");
+    if let Some(shared_sender) = shared_sender_lock.as_mut() {
+        println!("Got sahred sender as mut");
+        match shared_sender.write_all(new_message.as_bytes()).await {
+            Ok(_) => {
+                println!("Wrote command to port");
             }
-        });
-
+            Err(e) => {
+                eprintln!("Failed to write to port: {}", e);
+            }
+        }
         Ok(())
     } else {
         Err("No connected device found.".to_string())
