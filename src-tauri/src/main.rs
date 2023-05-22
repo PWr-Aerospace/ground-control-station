@@ -6,7 +6,7 @@
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serialport::available_ports;
-use std::{env, sync::Arc};
+use std::{env, fs::File, sync::Arc};
 use tauri::{AppHandle, Manager};
 use tokio::io::{split, AsyncReadExt, AsyncWriteExt, WriteHalf};
 use tokio_serial::{SerialPortBuilderExt, SerialStream};
@@ -77,6 +77,8 @@ lazy_static! {
         Arc::new(tokio::sync::Mutex::new(None));
     static ref TELEMETRY: Arc<tokio::sync::Mutex<Vec<Telemetry>>> =
         Arc::new(tokio::sync::Mutex::new(vec![]));
+    static ref SIMULATION_DATA: Arc<tokio::sync::Mutex<Vec<SimulationData>>> =
+        Arc::new(tokio::sync::Mutex::new(vec![]));
 }
 
 #[tokio::main]
@@ -92,16 +94,17 @@ async fn main() {
         .on_page_load(move |_, _| {})
         .invoke_handler(tauri::generate_handler![
             get_serial_ports_command,
-            connect_to_device,
+            start_flight_mode,
             stop_recording_and_save_csv,
-            send_message_to_device
+            send_message_to_device,
+            load_simulation_data,
         ])
         .run(context)
         .expect("error while running tauri application");
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn connect_to_device(
+async fn start_flight_mode(
     app_handle: AppHandle,
     device: String,
     baudrate: i32,
@@ -138,7 +141,17 @@ async fn connect_to_device(
                                     .has_headers(false)
                                     .from_reader(message.as_bytes());
                                 for result in csv_reader.deserialize::<Telemetry>() {
-                                    let telemetry = result.unwrap();
+                                    // let telemetry = result.unwrap();
+                                    let telemetry;
+                                    match result {
+                                        Ok(new_telemetry) => {
+                                            telemetry = new_telemetry;
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Failed to deserialize a message from the device: {:?}", e);
+                                            continue;
+                                        }
+                                    }
                                     // println!("{:#?}", telemetry);
 
                                     let mut all_telemetry = TELEMETRY.lock().await;
@@ -222,4 +235,83 @@ async fn send_message_to_device(message: String) -> Result<(), String> {
     } else {
         Err("No connected device found.".to_string())
     }
+}
+
+// #[tauri::command]
+// fn open_file() -> Result<String, String> {
+//     let dialog = OpenFileDialogBuilder::default();
+//     match open_file(dialog) {
+//         Ok(Some(path)) => Ok(path.to_str().unwrap().to_string()),
+//         Ok(None) => Ok(String::from("")),
+//         Err(err) => Err(err.to_string()),
+//     }
+// }
+
+#[derive(Debug, Deserialize, Serialize)]
+struct SimulationData {
+    cmd: String,
+    team_id: String,
+    simp: String,
+    pressure: f32,
+}
+
+impl SimulationData {
+    fn as_command_string(&self) -> String {
+        format!(
+            "{},{},{},{}",
+            self.cmd, self.team_id, self.simp, self.pressure
+        )
+    }
+}
+
+#[tauri::command]
+async fn load_simulation_data(simulation_data_path: String) -> Result<usize, String> {
+    println!("Starting to read sim data");
+    let file = File::open(simulation_data_path).map_err(|err| err.to_string())?;
+    let mut rdr = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .comment(Some(b'#'))
+        .from_reader(file);
+
+    let mut simulation_data: Vec<SimulationData> = Vec::new();
+
+    println!("Parsing sim data");
+    for result in rdr.deserialize::<SimulationData>() {
+        match result {
+            Ok(mut record) => {
+                // Validate that the record matches expected format
+                if record.cmd != "CMD" || record.simp != "SIMP" {
+                    continue;
+                }
+
+                // Replace $ with team id
+                if record.team_id == "$" {
+                    record.team_id = "1082".to_string();
+                }
+
+                simulation_data.push(record);
+            }
+            Err(e) => {
+                eprintln!("Failed to deserialize a line: {:?}", e);
+            }
+        }
+    }
+
+    println!("Got the simulation data, length: {}", simulation_data.len());
+    for i in 0..10 {
+        println!("{:?}", simulation_data[i].as_command_string());
+    }
+
+    *SIMULATION_DATA.lock().await = simulation_data;
+
+    Ok(SIMULATION_DATA.lock().await.len())
+}
+
+#[tauri::command]
+async fn start_simulation(
+    app_handle: AppHandle,
+    device: String,
+    baudrate: i32,
+) -> Result<(), String> {
+    Ok(())
 }
