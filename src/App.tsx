@@ -320,16 +320,11 @@ function App() {
                 {/* First Column */}
                 <div>
                     <DisplayLabel title="TEAM ID" value="1082" />
-                    <DisplayLabel
-                        title="Container Software state"
-                        value="IDLE"
-                    />
                     <DisplayLabel title="Payload software state" value="IDLE" />
                     <DisplayLabel title="Mission time" value={latestTelemetry?.mission_time.toString() || '0.0'} />
                     <DisplayLabel title="Packet count" value={latestTelemetry?.packet_count.toString() || '0.0'} />
                     <DisplayLabel title="CMD_ECHO" value={latestTelemetry?.cmd_echo.toString() || '0.0'} />
                     <DisplayLabel title="GPS time" value={latestTelemetry?.gps_time.toString() || '0.0'} />
-                    <DisplayLabel title="Pointing Error" value="" />
                 </div>
                 {/* Second Column */}
                 <div>
@@ -505,7 +500,7 @@ function App() {
                                                     weight: 'bold',
                                                     size: 16,
                                                 },
-                                                text: "Pressure [pKa]"
+                                                text: "Pressure [kPa]"
                                             },
                                         },
                                         x: {
