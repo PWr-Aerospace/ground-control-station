@@ -122,6 +122,7 @@ function App() {
     const [isRecording, setIsRecording] = useState<boolean>(false);
     const [isSimulationMode, setIsSimulationMode] = useState<boolean>(false);
     const [isSimulationDataLoaded, setIsSimulationDataLoaded] = useState<boolean>(false);
+    const [isSendingSimulationData, setIsSendingSimulationData] = useState<boolean>(false);
     const [isFlightMode, setIsFlightMode] = useState<boolean>(false);
     const [graphDataListener, setGraphDataListener] = useState<Promise<UnlistenFn> | null>(null);
     const [message, setMessage] = useState<string>("");
@@ -171,7 +172,7 @@ function App() {
         console.log("Path for the file: ", filePath);
 
         try {
-            await invoke("stop_recording_and_save_csv", { output_file: filePath });
+            await invoke("save_csv", { output_file: filePath });
             // setIsConnected(false);
         } catch (error) {
             console.error("Failed to disconnect and save CSV:", error);
@@ -186,7 +187,7 @@ function App() {
         }
 
         try {
-            await invoke("start_flight_mode", { device: selectedDevice, baudrate: selectedBaudRate });
+            await invoke("start_connection_and_reading", { device: selectedDevice, baudrate: selectedBaudRate });
             setIsConnected(true);
             setIsRecording(true);
 
@@ -377,6 +378,23 @@ function App() {
         }
     };
 
+    const startSendingSimulationData = async () => {
+        // await invoke("start_sending_simulation_data");
+        if (!selectedDevice) {
+            alert("Please select a device before starting.");
+            return;
+        }
+
+        try {
+            await invoke("start_sending_simulation_data");
+            setIsSendingSimulationData(true);
+        } catch (error) {
+            console.error("Failed to start sending simulation data to the device:", error);
+        }
+
+    }
+
+
 
     return (
         <div className="App">
@@ -384,8 +402,7 @@ function App() {
                 {/* First Column */}
                 <div>
                     <DisplayLabel title="TEAM ID" value="1082" />
-                    {/* TODO: What here???? */}
-                    <DisplayLabel title="Payload software state" value="IDLE" />
+                    <DisplayLabel title="Payload software state" value={latestTelemetry?.state.toString() || ''} />
                     <DisplayLabel title="Mission time" value={latestTelemetry?.mission_time.toString() || '0.0'} />
                     <DisplayLabel title="Packet count" value={latestTelemetry?.packet_count.toString() || '0.0'} />
                     <DisplayLabel title="CMD_ECHO" value={latestTelemetry?.cmd_echo.toString() || '0.0'} />
@@ -393,7 +410,10 @@ function App() {
                 </div>
                 {/* Second Column */}
                 <div>
-                    <DisplayLabel title="Simulation Status" value="DISABLED" />
+                    <DisplayLabel
+                        title="Simulation Status"
+                        value={latestTelemetry?.mode === 'S' ? 'ENABLED' : (latestTelemetry?.mode === 'F' ? 'DISABLED' : '')}
+                    />
                     <DisplayLabel title="Mast raised" value={latestTelemetry?.mast_raised.toString() || '0.0'} />
                     <DisplayLabel title="HS Deployed" value={latestTelemetry?.hs_deployed.toString() || '0.0'} />
                     <DisplayLabel title="PC Deployed" value={latestTelemetry?.pc_deployed.toString() || '0.0'} />
@@ -402,12 +422,12 @@ function App() {
                 </div>
                 {/* Third Column */}
                 <div>
-                    <Button text="Enter Flight Mode" onClick={setAsFLightMode} disabled={isFlightMode || isSimulationMode} />
-                    <Button text="Start Flight Mode" onClick={startConnection} disabled={!isConnected && !isFlightMode} />
+                    <Button text="Flight Mode" onClick={setAsFLightMode} disabled={isFlightMode || isSimulationMode} />
+                    <Button text="Simulation Mode" onClick={setSimulationMode} disabled={isFlightMode || isSimulationMode} />
+                    <Button text="Connect and Start Reading" onClick={startConnection} disabled={!isFlightMode && !isSimulationMode} />
+                    <Button text="Start Sending Data in Simulation Mode" onClick={startSendingSimulationData} disabled={(!isSimulationDataLoaded || !isConnected) || isSendingSimulationData}/>
+                    <Button text="Load CSV Simulation" onClick={loadSimulationData} disabled={(!isSimulationDataLoaded && !isSimulationMode) || isSendingSimulationData} />
                     <Button text="Save CSV" onClick={stopAndSaveCSV} disabled={!isConnected} />
-                    <Button text="Enter Simulation Mode" onClick={setSimulationMode} disabled={isFlightMode || isSimulationMode} />
-                    <Button text="Start Sending Simulation Data" onClick={startSimulation} disabled={!isSimulationMode || !isSimulationDataLoaded} />
-                    <Button text="Load CSV Simulation" onClick={loadSimulationData} disabled={!isSimulationMode} />
                 </div>
                 {/* Fourth Column */}
                 <div>

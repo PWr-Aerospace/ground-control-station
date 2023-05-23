@@ -3,9 +3,11 @@
     windows_subsystem = "windows"
 )]
 
+use csv::WriterBuilder;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serialport::available_ports;
+use std::fs::OpenOptions;
 use std::{env, fs::File, sync::Arc};
 use tauri::{AppHandle, Manager};
 use tokio::io::{split, AsyncReadExt, AsyncWriteExt, WriteHalf};
@@ -94,17 +96,18 @@ async fn main() {
         .on_page_load(move |_, _| {})
         .invoke_handler(tauri::generate_handler![
             get_serial_ports_command,
-            start_flight_mode,
-            stop_recording_and_save_csv,
+            start_connection_and_reading,
+            save_csv,
             send_message_to_device,
             load_simulation_data,
+            start_sending_simulation_data,
         ])
         .run(context)
         .expect("error while running tauri application");
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn start_flight_mode(
+async fn start_connection_and_reading(
     app_handle: AppHandle,
     device: String,
     baudrate: i32,
@@ -142,16 +145,13 @@ async fn start_flight_mode(
                                     .from_reader(message.as_bytes());
                                 for result in csv_reader.deserialize::<Telemetry>() {
                                     // let telemetry = result.unwrap();
-                                    let telemetry;
-                                    match result {
-                                        Ok(new_telemetry) => {
-                                            telemetry = new_telemetry;
-                                        }
+                                    let telemetry = match result {
+                                        Ok(new_telemetry) => new_telemetry,
                                         Err(e) => {
                                             eprintln!("Failed to deserialize a message from the device: {:?}", e);
                                             continue;
                                         }
-                                    }
+                                    };
                                     // println!("{:#?}", telemetry);
 
                                     let mut all_telemetry = TELEMETRY.lock().await;
@@ -180,12 +180,19 @@ async fn start_flight_mode(
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn stop_recording_and_save_csv(output_file: String) -> Result<(), String> {
+async fn save_csv(output_file: String) -> Result<(), String> {
     println!("Got the lock");
     let telemetry = TELEMETRY.lock().await;
+    let telemetry = telemetry.clone();
 
-    let mut csv_writer = csv::Writer::from_path(output_file)
-        .map_err(|e| format!("Error creating CSV file: {}", e))?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&output_file)
+        .map_err(|e| format!("Error opening file at {}: {}", output_file, e))?;
+
+    let mut csv_writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
     for t in telemetry.iter() {
         csv_writer
@@ -237,17 +244,7 @@ async fn send_message_to_device(message: String) -> Result<(), String> {
     }
 }
 
-// #[tauri::command]
-// fn open_file() -> Result<String, String> {
-//     let dialog = OpenFileDialogBuilder::default();
-//     match open_file(dialog) {
-//         Ok(Some(path)) => Ok(path.to_str().unwrap().to_string()),
-//         Ok(None) => Ok(String::from("")),
-//         Err(err) => Err(err.to_string()),
-//     }
-// }
-
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 struct SimulationData {
     cmd: String,
     team_id: String,
@@ -307,11 +304,29 @@ async fn load_simulation_data(simulation_data_path: String) -> Result<usize, Str
     Ok(SIMULATION_DATA.lock().await.len())
 }
 
-#[tauri::command]
-async fn start_simulation(
-    app_handle: AppHandle,
-    device: String,
-    baudrate: i32,
-) -> Result<(), String> {
+#[tauri::command(rename_all = "snake_case")]
+async fn start_sending_simulation_data() -> Result<(), String> {
+    println!("Entered sending sim data");
+    let simulation_data = SIMULATION_DATA.lock().await;
+    let simulation_data = simulation_data.clone();
+
+    tokio::spawn(async move {
+        println!("Spawned sending sim data thread");
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(1));
+        for data in simulation_data {
+            interval.tick().await;
+            println!("About to send data");
+
+            let mut command_string = data.as_command_string();
+            command_string += "\n";
+
+            if let Err(e) = send_message_to_device(command_string).await {
+                // handle the error here, maybe with `println!` or `log::error!`
+                println!("Error sending message to device: {}", e);
+            }
+            println!("Sim Data sent!");
+        }
+    });
+
     Ok(())
 }
