@@ -225,7 +225,7 @@ fn get_serial_ports_command() -> Vec<String> {
 #[tauri::command]
 async fn send_message_to_device(message: String) -> Result<(), String> {
     println!("About to send");
-    let new_message = message + "\n";
+    let new_message = message + "\r\n";
     let mut shared_sender_lock = SHARED_SENDER.lock().await;
     println!("Got lock on the sender");
     if let Some(shared_sender) = shared_sender_lock.as_mut() {
@@ -318,7 +318,7 @@ async fn start_sending_simulation_data() -> Result<(), String> {
             println!("About to send data");
 
             let mut command_string = data.as_command_string();
-            command_string += "\n";
+            command_string += "\r";
 
             if let Err(e) = send_message_to_device(command_string).await {
                 // handle the error here, maybe with `println!` or `log::error!`
