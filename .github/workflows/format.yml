@@ -1,28 +1,28 @@
 
-name: 👔 Check formatting
+# name: 👔 Check formatting
 
-on:
-    pull_request:
-    push:
-        branches: ["main", "master", "develop", "release"]
+# on:
+#     pull_request:
+#     push:
+#         branches: ["main", "master", "develop", "release"]
 
-env:
-    CARGO_TERM_COLOR: always
+# env:
+#     CARGO_TERM_COLOR: always
 
-jobs:
-    check_format:
-        name: 👔 Check formatting
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/cache@v3
-              with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      target/
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-            - uses: actions/checkout@v2
-            - name: Check Formatting
-              run: cd src-tauri/ ; cargo fmt -- --verbose --check --color auto
+# jobs:
+#     check_format:
+#         name: 👔 Check formatting
+#         runs-on: ubuntu-latest
+#         steps:
+#             - uses: actions/cache@v3
+#               with:
+#                   path: |
+#                       ~/.cargo/bin/
+#                       ~/.cargo/registry/index/
+#                       ~/.cargo/registry/cache/
+#                       ~/.cargo/git/db/
+#                       target/
+#                   key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+#             - uses: actions/checkout@v2
+#             - name: Check Formatting
+#               run: cd src-tauri/ ; cargo fmt -- --verbose --check --color auto

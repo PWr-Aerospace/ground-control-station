@@ -22,6 +22,7 @@ target/
 # Visual Studio Code
 .vscode/
 workspace.code-workspace
+.devcontainer/
 
 # macOS
 .DS_Store

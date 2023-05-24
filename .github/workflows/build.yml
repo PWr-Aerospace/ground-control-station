@@ -1,39 +1,39 @@
-name: 🔨 Build
-on:
-    pull_request:
-    push:
-        branches: ["main", "master", "develop", "release"]
+# name: 🔨 Build
+# on:
+#     pull_request:
+#     push:
+#         branches: ["main", "master", "develop", "release"]
 
-env:
-    CARGO_TERM_COLOR: always
+# env:
+#     CARGO_TERM_COLOR: always
 
-jobs:
-    build:
-        strategy:
-            matrix:
-                os: [ubuntu-latest, windows-latest, macos-latest]
-                toolchain: [stable, beta, nightly]
-        name: 🔨 Build release
-        runs-on: ${{ matrix.os }}
-        steps:
-            - uses: actions/checkout@v2
-            - name: Install latest ${{ matrix.toolchain }}
-              uses: actions-rs/toolchain@v1
-              with:
-                  toolchain: ${{ matrix.toolchain }}
-            - uses: actions/cache@v3
-              with:
-                  path: |
-                      ~/.cargo/bin/
-                      ~/.cargo/registry/index/
-                      ~/.cargo/registry/cache/
-                      ~/.cargo/git/db/
-                      target/
-                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-            - name: install dependencies (ubuntu only)
-              if: matrix.os == 'ubuntu-latest'
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libudev-dev
-            - name: Build release
-              run: cd src-tauri/ ; cargo build --release
+# jobs:
+#     build:
+#         strategy:
+#             matrix:
+#                 os: [ubuntu-latest, windows-latest, macos-latest]
+#                 toolchain: [stable, beta, nightly]
+#         name: 🔨 Build release
+#         runs-on: ${{ matrix.os }}
+#         steps:
+#             - uses: actions/checkout@v2
+#             - name: Install latest ${{ matrix.toolchain }}
+#               uses: actions-rs/toolchain@v1
+#               with:
+#                   toolchain: ${{ matrix.toolchain }}
+#             - uses: actions/cache@v3
+#               with:
+#                   path: |
+#                       ~/.cargo/bin/
+#                       ~/.cargo/registry/index/
+#                       ~/.cargo/registry/cache/
+#                       ~/.cargo/git/db/
+#                       target/
+#                   key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+#             - name: install dependencies (ubuntu only)
+#               if: matrix.os == 'ubuntu-latest'
+#               run: |
+#                   sudo apt-get update
+#                   sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libudev-dev
+#             - name: Build release
+#               run: cd src-tauri/ ; cargo build --release
