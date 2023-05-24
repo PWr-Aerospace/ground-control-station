@@ -317,8 +317,7 @@ async fn start_sending_simulation_data() -> Result<(), String> {
             interval.tick().await;
             println!("About to send data");
 
-            let mut command_string = data.as_command_string();
-            command_string += "\r";
+            let command_string = data.as_command_string();
 
             if let Err(e) = send_message_to_device(command_string).await {
                 // handle the error here, maybe with `println!` or `log::error!`

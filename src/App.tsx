@@ -90,9 +90,8 @@ interface ButtonProps {
     text: string;
     onClick?: () => void;
     disabled?: boolean;
-
-
 }
+
 const Button = ({ text, onClick, disabled }: ButtonProps) => {
     return (
         <button className="button" onClick={onClick} disabled={disabled}>
@@ -394,6 +393,15 @@ function App() {
 
     }
 
+    const sendCustomMessage = async (message: string) => {
+        console.log(`Sending custom message: ${message}`);
+        await invoke('send_message_to_device', { message })
+            .then(() => {
+                console.log("Message sent successfully");
+                setMessage("");
+            })
+            .catch((e) => console.error("Error sending message to device", e));
+    };
 
 
     return (
@@ -425,7 +433,7 @@ function App() {
                     <Button text="Flight Mode" onClick={setAsFLightMode} disabled={isFlightMode || isSimulationMode} />
                     <Button text="Simulation Mode" onClick={setSimulationMode} disabled={isFlightMode || isSimulationMode} />
                     <Button text="Connect and Start Reading" onClick={startConnection} disabled={!isFlightMode && !isSimulationMode} />
-                    <Button text="Start Sending Data in Simulation Mode" onClick={startSendingSimulationData} disabled={(!isSimulationDataLoaded || !isConnected) || isSendingSimulationData}/>
+                    <Button text="Start Sending Data in Simulation Mode" onClick={startSendingSimulationData} disabled={(!isSimulationDataLoaded || !isConnected) || isSendingSimulationData} />
                     <Button text="Load CSV Simulation" onClick={loadSimulationData} disabled={(!isSimulationDataLoaded && !isSimulationMode) || isSendingSimulationData} />
                     <Button text="Save CSV" onClick={stopAndSaveCSV} disabled={!isConnected} />
                 </div>
@@ -761,6 +769,26 @@ function App() {
                         <div>
                             <input type="text" value={message} onChange={handleInputChange} />
                             <Button text="Send" onClick={sendMessage} disabled={!isConnected} />
+                            {/* Custom commands buttons */}
+
+                            <Button text="Send Beep" onClick={() => sendCustomMessage("CMD,1082,BEEP")} disabled={!isConnected} />
+
+
+
+
+
+
+
+                            
+                            <Button text="Set time" onClick={() => {
+                                const now = new Date();
+                                const hours = String(now.getUTCHours()).padStart(2, '0');
+                                const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+                                const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+                                const formattedTime = `${hours}:${minutes}:${seconds}`;
+                                sendCustomMessage(`CMD,1082,ST,${formattedTime}`);
+                            }} disabled={!isConnected} />
+
                         </div>
                     </TabPanel>
                 </Tabs>
