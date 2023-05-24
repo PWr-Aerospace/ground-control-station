@@ -773,13 +773,6 @@ function App() {
 
                             <Button text="Send Beep" onClick={() => sendCustomMessage("CMD,1082,BEEP")} disabled={!isConnected} />
 
-
-
-
-
-
-
-                            
                             <Button text="Set time" onClick={() => {
                                 const now = new Date();
                                 const hours = String(now.getUTCHours()).padStart(2, '0');
@@ -788,7 +781,19 @@ function App() {
                                 const formattedTime = `${hours}:${minutes}:${seconds}`;
                                 sendCustomMessage(`CMD,1082,ST,${formattedTime}`);
                             }} disabled={!isConnected} />
+<div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px'}}>
 
+                            <Button text="Motor CW 0" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CW,0")} disabled={!isConnected} />
+                            <Button text="Motor CW 200" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CW,200")} disabled={!isConnected} />
+                            <Button text="Motor CW 400" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CW,400")} disabled={!isConnected} />
+                            <Button text="Motor CW 499" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CW,499")} disabled={!isConnected} />
+                            <Button text="Motor CCW 0" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CCW,0")} disabled={!isConnected} />
+                            <Button text="Motor CCW 200" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CCW,200")} disabled={!isConnected} />
+                            <Button text="Motor CCW 400" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CCW,400")} disabled={!isConnected} />
+                            <Button text="Motor CCW 499" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CCW,499")} disabled={!isConnected} />
+</div>
+
+                            {/* // CMD,1082,MOTOR,CW-CCW,0-499 */}
                         </div>
                     </TabPanel>
                 </Tabs>
