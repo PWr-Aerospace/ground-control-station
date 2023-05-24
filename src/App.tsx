@@ -90,9 +90,8 @@ interface ButtonProps {
     text: string;
     onClick?: () => void;
     disabled?: boolean;
-
-
 }
+
 const Button = ({ text, onClick, disabled }: ButtonProps) => {
     return (
         <button className="button" onClick={onClick} disabled={disabled}>
@@ -120,6 +119,10 @@ function App() {
     const [selectedBaudRate, setSelectedBaudRate] = useState<number>(115200);
     const [isConnected, setIsConnected] = useState<boolean>(false);
     const [isRecording, setIsRecording] = useState<boolean>(false);
+    const [isSimulationMode, setIsSimulationMode] = useState<boolean>(false);
+    const [isSimulationDataLoaded, setIsSimulationDataLoaded] = useState<boolean>(false);
+    const [isSendingSimulationData, setIsSendingSimulationData] = useState<boolean>(false);
+    const [isFlightMode, setIsFlightMode] = useState<boolean>(false);
     const [graphDataListener, setGraphDataListener] = useState<Promise<UnlistenFn> | null>(null);
     const [message, setMessage] = useState<string>("");
 
@@ -164,12 +167,12 @@ function App() {
             });
             setGraphDataListener(null); // Reset the listener state
         }
-        setIsRecording(false);
+        // setIsRecording(false);
         console.log("Path for the file: ", filePath);
 
         try {
-            await invoke("stop_recording_and_save_csv", { output_file: filePath });
-            setIsConnected(false);
+            await invoke("save_csv", { output_file: filePath });
+            // setIsConnected(false);
         } catch (error) {
             console.error("Failed to disconnect and save CSV:", error);
         }
@@ -183,7 +186,7 @@ function App() {
         }
 
         try {
-            await invoke("connect_to_device", { device: selectedDevice, baudrate: selectedBaudRate });
+            await invoke("start_connection_and_reading", { device: selectedDevice, baudrate: selectedBaudRate });
             setIsConnected(true);
             setIsRecording(true);
 
@@ -210,6 +213,43 @@ function App() {
             console.error("Failed to connect to the device:", error);
         }
     };
+
+    const startSimulation = async () => {
+
+        if (!selectedDevice) {
+            alert("Please select a device before starting.");
+            return;
+        }
+
+
+        try {
+            await invoke("start_simulation", { device: selectedDevice, baudrate: selectedBaudRate });
+            setIsConnected(true);
+            setIsRecording(true);
+
+            const graphDataListener = listen(
+                "graph-data",
+                ({ payload: telemetry }: { payload: Telemetry }) => {
+                    setLatestTelemetry(telemetry);
+                    setGraphData((old) => ({
+                        time: [...old.time, telemetry.mission_time],
+                        altitude: [...old.altitude, telemetry.altitude],
+                        temperature: [...old.temperature, telemetry.temperature],
+                        pressure: [...old.pressure, telemetry.pressure],
+                        voltage: [...old.voltage, telemetry.voltage],
+                        tiltx: [...old.tiltx, telemetry.tilt_x],
+                        tilty: [...old.tilty, telemetry.tilt_y],
+                    }));
+                }
+            );
+
+            // Save listener to state so we can unlisten later
+            setGraphDataListener(graphDataListener);
+
+        } catch (error) {
+            console.error("Failed to connect to the device:", error);
+        }
+    }
 
     const handleDeviceChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         setSelectedDevice(event.target.value);
@@ -313,6 +353,56 @@ function App() {
         }]
     };
 
+    const setAsFLightMode = async () => {
+        setIsFlightMode(true);
+    };
+
+    const setSimulationMode = async () => {
+        setIsSimulationMode(true);
+    };
+
+    const loadSimulationData = async () => {
+        const result = await dialog.open({
+            multiple: false,
+        });
+        if (result !== null) {
+            console.log("Selected file: ", result);
+            let parsing_result = await invoke("load_simulation_data", { simulationDataPath: result }) as number;
+            alert(`File at '${result}' has been loaded into memory and parsed. The number of correct parsed lines: ${parsing_result}`)
+            setIsSimulationDataLoaded(true);
+        } else {
+            console.log("No file was selected.");
+            alert("File was not selected!");
+            setIsSimulationDataLoaded(false);
+        }
+    };
+
+    const startSendingSimulationData = async () => {
+        // await invoke("start_sending_simulation_data");
+        if (!selectedDevice) {
+            alert("Please select a device before starting.");
+            return;
+        }
+
+        try {
+            await invoke("start_sending_simulation_data");
+            setIsSendingSimulationData(true);
+        } catch (error) {
+            console.error("Failed to start sending simulation data to the device:", error);
+        }
+
+    }
+
+    const sendCustomMessage = async (message: string) => {
+        console.log(`Sending custom message: ${message}`);
+        await invoke('send_message_to_device', { message })
+            .then(() => {
+                console.log("Message sent successfully");
+                setMessage("");
+            })
+            .catch((e) => console.error("Error sending message to device", e));
+    };
+
 
     return (
         <div className="App">
@@ -320,7 +410,7 @@ function App() {
                 {/* First Column */}
                 <div>
                     <DisplayLabel title="TEAM ID" value="1082" />
-                    <DisplayLabel title="Payload software state" value="IDLE" />
+                    <DisplayLabel title="Payload software state" value={latestTelemetry?.state.toString() || ''} />
                     <DisplayLabel title="Mission time" value={latestTelemetry?.mission_time.toString() || '0.0'} />
                     <DisplayLabel title="Packet count" value={latestTelemetry?.packet_count.toString() || '0.0'} />
                     <DisplayLabel title="CMD_ECHO" value={latestTelemetry?.cmd_echo.toString() || '0.0'} />
@@ -328,7 +418,10 @@ function App() {
                 </div>
                 {/* Second Column */}
                 <div>
-                    <DisplayLabel title="Simulation Status" value="DISABLED" />
+                    <DisplayLabel
+                        title="Simulation Status"
+                        value={latestTelemetry?.mode === 'S' ? 'ENABLED' : (latestTelemetry?.mode === 'F' ? 'DISABLED' : '')}
+                    />
                     <DisplayLabel title="Mast raised" value={latestTelemetry?.mast_raised.toString() || '0.0'} />
                     <DisplayLabel title="HS Deployed" value={latestTelemetry?.hs_deployed.toString() || '0.0'} />
                     <DisplayLabel title="PC Deployed" value={latestTelemetry?.pc_deployed.toString() || '0.0'} />
@@ -337,21 +430,22 @@ function App() {
                 </div>
                 {/* Third Column */}
                 <div>
-                    <Button text="Start" onClick={startConnection} disabled={isConnected} />
-                    <Button text="Stop and Save CSV" onClick={stopAndSaveCSV} />
-                    <Button text="Load CSV Simulation" disabled={true} />
+                    <Button text="Flight Mode" onClick={setAsFLightMode} disabled={isFlightMode || isSimulationMode} />
+                    <Button text="Simulation Mode" onClick={setSimulationMode} disabled={isFlightMode || isSimulationMode} />
+                    <Button text="Connect and Start Reading" onClick={startConnection} disabled={!isFlightMode && !isSimulationMode} />
+                    <Button text="Start Sending Data in Simulation Mode" onClick={startSendingSimulationData} disabled={(!isSimulationDataLoaded || !isConnected) || isSendingSimulationData} />
+                    <Button text="Load CSV Simulation" onClick={loadSimulationData} disabled={(!isSimulationDataLoaded && !isSimulationMode) || isSendingSimulationData} />
+                    <Button text="Save CSV" onClick={stopAndSaveCSV} disabled={!isConnected} />
                 </div>
                 {/* Fourth Column */}
                 <div>
                     {/* <Button text="Dupa Button" onClick={sendMessage} /> */}
                     <Button text="Simulation Enable" disabled={true} />
-
                     <Button text="Simulation Activate" disabled={true} />
                     <Button text="Simulation Disable" disabled={true} />
+                    <Button text="Refresh Devices" onClick={fetchDevices} disabled={(isConnected || (!isFlightMode && !isSimulationMode))} />
 
-                    <Button text="Refresh Devices" onClick={fetchDevices} disabled={isConnected} />
-
-                    <select value={selectedDevice} onChange={handleDeviceChange} disabled={isConnected}>
+                    <select value={selectedDevice} onChange={handleDeviceChange} disabled={(isConnected || (!isFlightMode && !isSimulationMode))}>
                         <option value="" disabled>Pick a device</option>
                         {devices.map((device) => (
                             <option key={device} value={device}>
@@ -360,7 +454,7 @@ function App() {
                         ))}
                     </select>
 
-                    <select id="baud-rate-select" onChange={handleBaudRateChange} disabled={isConnected} >
+                    <select id="baud-rate-select" onChange={handleBaudRateChange} disabled={(isConnected || (!isFlightMode && !isSimulationMode))} >
                         <option value="9600">9600</option>
                         <option value="14400">14400</option>
                         <option value="19200">19200</option>
@@ -675,6 +769,26 @@ function App() {
                         <div>
                             <input type="text" value={message} onChange={handleInputChange} />
                             <Button text="Send" onClick={sendMessage} disabled={!isConnected} />
+                            {/* Custom commands buttons */}
+
+                            <Button text="Send Beep" onClick={() => sendCustomMessage("CMD,1082,BEEP")} disabled={!isConnected} />
+
+
+
+
+
+
+
+                            
+                            <Button text="Set time" onClick={() => {
+                                const now = new Date();
+                                const hours = String(now.getUTCHours()).padStart(2, '0');
+                                const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+                                const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+                                const formattedTime = `${hours}:${minutes}:${seconds}`;
+                                sendCustomMessage(`CMD,1082,ST,${formattedTime}`);
+                            }} disabled={!isConnected} />
+
                         </div>
                     </TabPanel>
                 </Tabs>

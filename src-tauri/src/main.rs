@@ -3,10 +3,12 @@
     windows_subsystem = "windows"
 )]
 
+use csv::WriterBuilder;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serialport::available_ports;
-use std::{env, sync::Arc};
+use std::fs::OpenOptions;
+use std::{env, fs::File, sync::Arc};
 use tauri::{AppHandle, Manager};
 use tokio::io::{split, AsyncReadExt, AsyncWriteExt, WriteHalf};
 use tokio_serial::{SerialPortBuilderExt, SerialStream};
@@ -77,6 +79,8 @@ lazy_static! {
         Arc::new(tokio::sync::Mutex::new(None));
     static ref TELEMETRY: Arc<tokio::sync::Mutex<Vec<Telemetry>>> =
         Arc::new(tokio::sync::Mutex::new(vec![]));
+    static ref SIMULATION_DATA: Arc<tokio::sync::Mutex<Vec<SimulationData>>> =
+        Arc::new(tokio::sync::Mutex::new(vec![]));
 }
 
 #[tokio::main]
@@ -92,16 +96,18 @@ async fn main() {
         .on_page_load(move |_, _| {})
         .invoke_handler(tauri::generate_handler![
             get_serial_ports_command,
-            connect_to_device,
-            stop_recording_and_save_csv,
-            send_message_to_device
+            start_connection_and_reading,
+            save_csv,
+            send_message_to_device,
+            load_simulation_data,
+            start_sending_simulation_data,
         ])
         .run(context)
         .expect("error while running tauri application");
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn connect_to_device(
+async fn start_connection_and_reading(
     app_handle: AppHandle,
     device: String,
     baudrate: i32,
@@ -138,7 +144,14 @@ async fn connect_to_device(
                                     .has_headers(false)
                                     .from_reader(message.as_bytes());
                                 for result in csv_reader.deserialize::<Telemetry>() {
-                                    let telemetry = result.unwrap();
+                                    // let telemetry = result.unwrap();
+                                    let telemetry = match result {
+                                        Ok(new_telemetry) => new_telemetry,
+                                        Err(e) => {
+                                            eprintln!("Failed to deserialize a message from the device: {:?}", e);
+                                            continue;
+                                        }
+                                    };
                                     // println!("{:#?}", telemetry);
 
                                     let mut all_telemetry = TELEMETRY.lock().await;
@@ -167,12 +180,19 @@ async fn connect_to_device(
 }
 
 #[tauri::command(rename_all = "snake_case")]
-async fn stop_recording_and_save_csv(output_file: String) -> Result<(), String> {
+async fn save_csv(output_file: String) -> Result<(), String> {
     println!("Got the lock");
     let telemetry = TELEMETRY.lock().await;
+    let telemetry = telemetry.clone();
 
-    let mut csv_writer = csv::Writer::from_path(output_file)
-        .map_err(|e| format!("Error creating CSV file: {}", e))?;
+    let file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&output_file)
+        .map_err(|e| format!("Error opening file at {}: {}", output_file, e))?;
+
+    let mut csv_writer = WriterBuilder::new().has_headers(false).from_writer(file);
 
     for t in telemetry.iter() {
         csv_writer
@@ -205,7 +225,7 @@ fn get_serial_ports_command() -> Vec<String> {
 #[tauri::command]
 async fn send_message_to_device(message: String) -> Result<(), String> {
     println!("About to send");
-    let new_message = message + "\n";
+    let new_message = message + "\r\n";
     let mut shared_sender_lock = SHARED_SENDER.lock().await;
     println!("Got lock on the sender");
     if let Some(shared_sender) = shared_sender_lock.as_mut() {
@@ -222,4 +242,90 @@ async fn send_message_to_device(message: String) -> Result<(), String> {
     } else {
         Err("No connected device found.".to_string())
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct SimulationData {
+    cmd: String,
+    team_id: String,
+    simp: String,
+    pressure: f32,
+}
+
+impl SimulationData {
+    fn as_command_string(&self) -> String {
+        format!(
+            "{},{},{},{}",
+            self.cmd, self.team_id, self.simp, self.pressure
+        )
+    }
+}
+
+#[tauri::command]
+async fn load_simulation_data(simulation_data_path: String) -> Result<usize, String> {
+    println!("Starting to read sim data");
+    let file = File::open(simulation_data_path).map_err(|err| err.to_string())?;
+    let mut rdr = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .comment(Some(b'#'))
+        .from_reader(file);
+
+    let mut simulation_data: Vec<SimulationData> = Vec::new();
+
+    println!("Parsing sim data");
+    for result in rdr.deserialize::<SimulationData>() {
+        match result {
+            Ok(mut record) => {
+                // Validate that the record matches expected format
+                if record.cmd != "CMD" || record.simp != "SIMP" {
+                    continue;
+                }
+
+                // Replace $ with team id
+                if record.team_id == "$" {
+                    record.team_id = "1082".to_string();
+                }
+
+                simulation_data.push(record);
+            }
+            Err(e) => {
+                eprintln!("Failed to deserialize a line: {:?}", e);
+            }
+        }
+    }
+
+    println!("Got the simulation data, length: {}", simulation_data.len());
+    for i in simulation_data.iter().take(10) {
+        println!("{:?}", i.as_command_string());
+    }
+
+    *SIMULATION_DATA.lock().await = simulation_data;
+
+    Ok(SIMULATION_DATA.lock().await.len())
+}
+
+#[tauri::command(rename_all = "snake_case")]
+async fn start_sending_simulation_data() -> Result<(), String> {
+    println!("Entered sending sim data");
+    let simulation_data = SIMULATION_DATA.lock().await;
+    let simulation_data = simulation_data.clone();
+
+    tokio::spawn(async move {
+        println!("Spawned sending sim data thread");
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(1));
+        for data in simulation_data {
+            interval.tick().await;
+            println!("About to send data");
+
+            let command_string = data.as_command_string();
+
+            if let Err(e) = send_message_to_device(command_string).await {
+                // handle the error here, maybe with `println!` or `log::error!`
+                println!("Error sending message to device: {}", e);
+            }
+            println!("Sim Data sent!");
+        }
+    });
+
+    Ok(())
 }

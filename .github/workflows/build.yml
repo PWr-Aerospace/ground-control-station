@@ -11,8 +11,8 @@ jobs:
     build:
         strategy:
             matrix:
-                os: [ubuntu-latest, windows-latest, macos-latest]
-                toolchain: [stable, beta, nightly]
+                os: [ubuntu-latest, macos-latest]
+                toolchain: [stable]
         name: 🔨 Build release
         runs-on: ${{ matrix.os }}
         steps:
