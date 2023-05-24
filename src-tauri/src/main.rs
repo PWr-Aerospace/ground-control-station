@@ -295,8 +295,8 @@ async fn load_simulation_data(simulation_data_path: String) -> Result<usize, Str
     }
 
     println!("Got the simulation data, length: {}", simulation_data.len());
-    for i in 0..10 {
-        println!("{:?}", simulation_data[i].as_command_string());
+    for i in simulation_data.iter().take(10) {
+        println!("{:?}", i.as_command_string());
     }
 
     *SIMULATION_DATA.lock().await = simulation_data;
