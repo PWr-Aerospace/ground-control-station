@@ -470,6 +470,7 @@ function App() {
                         <Tab className="tab-button">Plots</Tab>
                         <Tab className="tab-button">Map</Tab>
                         <Tab className="tab-button">Custom Commands</Tab>
+                        <Tab className="tab-button">Temperature</Tab>
                     </TabList>
 
                     <TabPanel className="plot-container" >
@@ -795,6 +796,69 @@ function App() {
 
                             {/* // CMD,1082,MOTOR,CW-CCW,0-499 */}
                         </div>
+                    </TabPanel>
+                    <TabPanel className="plot-container2">
+                    {/* <DisplayLabel title="Time" value={latestTelemetry?.mission_time.toString() || '0.0'} /> */}
+                    <div className="chart-item2">
+                                <Line options={{
+                                    maintainAspectRatio: false,
+                                    responsive: true,
+                                    plugins: {
+                                        title: {
+                                            display: true,
+                                            font: {
+                                                weight: 'bold',
+                                                size: 16,
+                                            },
+                                            text: 'Temperature',
+                                        },
+                                    },
+                                    scales: {
+                                        y: {
+
+                                            min: 20,
+                                            max: 100,
+                                            ticks: {
+                                                precision: 1,
+                                                font: {size: 30,
+
+                                                }
+                                            },
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 40,
+                                                },
+                                                text: "Temperature [C]"
+                                            },
+                                        },
+                                        x: {
+                                            title: {
+                                                display: true,
+                                                font: {
+                                                    weight: 'bold',
+                                                    size: 40,
+                                                },
+                                                text: "Time [hh:mm:ss]"
+                                            },
+                                            ticks: {
+                                                precision: 1,
+                                                font: {size: 30,
+
+                                                }
+                                            },
+                                        }
+                                    },
+                                    animation: false,
+                                    elements: {
+                                        point: {
+                                            pointStyle: false,
+                                        }
+                                    }
+                                }} data={temperatureData} />
+                                </div>
+
                     </TabPanel>
                 </Tabs>
             </div>
