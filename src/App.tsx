@@ -841,7 +841,7 @@ function App() {
                                             display: true,
                                             font: {
                                                 weight: 'bold',
-                                                size: 40,
+                                                size: 30,
                                             },
                                             text: "Temperature [C]"
                                         },
@@ -851,7 +851,7 @@ function App() {
                                             display: true,
                                             font: {
                                                 weight: 'bold',
-                                                size: 40,
+                                                size: 30,
                                             },
                                             text: "Time [hh:mm:ss]"
                                         },
