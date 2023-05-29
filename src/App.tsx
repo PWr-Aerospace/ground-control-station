@@ -470,6 +470,7 @@ function App() {
                         <Tab className="tab-button">Plots</Tab>
                         <Tab className="tab-button">Map</Tab>
                         <Tab className="tab-button">Custom Commands</Tab>
+                        <Tab className="tab-button">Temperature</Tab>
                     </TabList>
 
                     <TabPanel className="plot-container" >
@@ -773,13 +774,6 @@ function App() {
 
                             <Button text="Send Beep" onClick={() => sendCustomMessage("CMD,1082,BEEP")} disabled={!isConnected} />
 
-
-
-
-
-
-
-                            
                             <Button text="Set time" onClick={() => {
                                 const now = new Date();
                                 const hours = String(now.getUTCHours()).padStart(2, '0');
@@ -788,8 +782,97 @@ function App() {
                                 const formattedTime = `${hours}:${minutes}:${seconds}`;
                                 sendCustomMessage(`CMD,1082,ST,${formattedTime}`);
                             }} disabled={!isConnected} />
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 2fr)', gap: '10px' }}>
 
+                                <Button text="Motor CW 0" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CW,0")} disabled={!isConnected} />
+                                <Button text="Motor CW 200" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CW,200")} disabled={!isConnected} />
+                                <Button text="Motor CW 400" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CW,400")} disabled={!isConnected} />
+                                <Button text="Motor CW 499" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CW,499")} disabled={!isConnected} />
+                                <Button text="Motor CCW 0" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CCW,0")} disabled={!isConnected} />
+                                <Button text="Motor CCW 200" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CCW,200")} disabled={!isConnected} />
+                                <Button text="Motor CCW 400" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CCW,400")} disabled={!isConnected} />
+                                <Button text="Motor CCW 499" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CCW,499")} disabled={!isConnected} />
+
+                                <Button text="Servo 1 0" onClick={() => sendCustomMessage("CMD,1082,SERVO,1,0")} disabled={!isConnected} />
+                                <Button text="Servo 1 90" onClick={() => sendCustomMessage("CMD,1082,SERVO,1,90")} disabled={!isConnected} />
+                                <Button text="Servo 1 180" onClick={() => sendCustomMessage("CMD,1082,SERVO,1,180")} disabled={!isConnected} />
+
+                                <Button text="Servo 2 0" onClick={() => sendCustomMessage("CMD,1082,SERVO,2,0")} disabled={!isConnected} />
+                                <Button text="Servo 2 90" onClick={() => sendCustomMessage("CMD,1082,SERVO,2,90")} disabled={!isConnected} />
+                                <Button text="Servo 2 180" onClick={() => sendCustomMessage("CMD,1082,SERVO,2,180")} disabled={!isConnected} />
+
+                                <Button text="Servo 3 0" onClick={() => sendCustomMessage("CMD,1082,SERVO,3,0")} disabled={!isConnected} />
+                                <Button text="Servo 3 90" onClick={() => sendCustomMessage("CMD,1082,SERVO,3,90")} disabled={!isConnected} />
+                                <Button text="Servo 3 180" onClick={() => sendCustomMessage("CMD,1082,SERVO,3,180")} disabled={!isConnected} />
+
+                            </div>
+                            {/* // CMD,1082,MOTOR,CW-CCW,0-499 */}
                         </div>
+                    </TabPanel>
+                    <TabPanel className="plot-container2">
+                        {/* <DisplayLabel title="Time" value={latestTelemetry?.mission_time.toString() || '0.0'} /> */}
+                        <div className="chart-item2">
+                            <Line options={{
+                                maintainAspectRatio: false,
+                                responsive: true,
+                                plugins: {
+                                    title: {
+                                        display: true,
+                                        font: {
+                                            weight: 'bold',
+                                            size: 16,
+                                        },
+                                        text: 'Temperature',
+                                    },
+                                },
+                                scales: {
+                                    y: {
+
+                                        min: 20,
+                                        max: 100,
+                                        ticks: {
+                                            precision: 1,
+                                            font: {
+                                                size: 30,
+
+                                            }
+                                        },
+                                        title: {
+                                            display: true,
+                                            font: {
+                                                weight: 'bold',
+                                                size: 30,
+                                            },
+                                            text: "Temperature [C]"
+                                        },
+                                    },
+                                    x: {
+                                        title: {
+                                            display: true,
+                                            font: {
+                                                weight: 'bold',
+                                                size: 30,
+                                            },
+                                            text: "Time [hh:mm:ss]"
+                                        },
+                                        ticks: {
+                                            precision: 1,
+                                            font: {
+                                                size: 30,
+
+                                            }
+                                        },
+                                    }
+                                },
+                                animation: false,
+                                elements: {
+                                    point: {
+                                        pointStyle: false,
+                                    }
+                                }
+                            }} data={temperatureData} />
+                        </div>
+
                     </TabPanel>
                 </Tabs>
             </div>
