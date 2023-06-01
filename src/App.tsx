@@ -7,6 +7,8 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { dialog } from '@tauri-apps/api';
+import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet'
+import "leaflet/dist/leaflet.css";
 
 import {
     CategoryScale,
@@ -15,6 +17,7 @@ import {
     LineElement,
     Title,
 } from 'chart.js';
+import { Popup } from "react-leaflet";
 
 ChartJS.register(
     CategoryScale,
@@ -403,6 +406,8 @@ function App() {
             .catch((e) => console.error("Error sending message to device", e));
     };
 
+    var position = [37.199, -80.565]
+
 
     return (
         <div className="App">
@@ -764,7 +769,20 @@ function App() {
 
                     </TabPanel>
                     <TabPanel className="plot-container">
-                        Mapa TBD
+                        {/* <div className="mapbox"> */}
+
+                        <MapContainer center={[position[0], position[1]]} zoom={13} scrollWheelZoom={false} className="mapbox">
+                            <TileLayer
+                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            />
+                            <Marker position={[position[0], position[1]]}>
+                                {/* <Popup>
+                                    A pretty CSS3 popup. <br /> Easily customizable.
+                                </Popup> */}
+                            </Marker>
+                        </MapContainer>
+                        {/* </div> */}
                     </TabPanel>
                     <TabPanel className="plot-container" >
                         <div>

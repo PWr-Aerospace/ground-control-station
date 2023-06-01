@@ -126,3 +126,8 @@ select:disabled {
     width: 1800px;
     height: 600px;
 }
+
+.mapbox {
+    width: 700px;
+    height: 500px;
+}
