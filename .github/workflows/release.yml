@@ -63,6 +63,16 @@ jobs:
             - name: Download Artifacts
               uses: actions/download-artifact@v2
 
+            - name: Zip Artifacts
+              run: |
+                mkdir release-ubuntu-latest
+                mv ubuntu-latest/* release-ubuntu-latest/
+                zip -r release-ubuntu-latest.zip release-ubuntu-latest/
+            
+                mkdir release-macos-latest
+                mv macos-latest/* release-macos-latest/
+                zip -r release-macos-latest.zip release-macos-latest/
+
             - name: Get the version
               id: get_version
               run: echo ::set-output name=VERSION::$(echo ${GITHUB_REF#refs/tags/} | sed 's/[^0-9.]*//g')
