@@ -65,11 +65,11 @@ jobs:
 
             - name: Zip Artifacts
               run: |
-                mkdir release-ubuntu-latest
+                mkdir -p release-ubuntu-latest
                 mv ubuntu-latest/* release-ubuntu-latest/
                 zip -r release-ubuntu-latest.zip release-ubuntu-latest/
             
-                mkdir release-macos-latest
+                mkdir -p release-macos-latest
                 mv macos-latest/* release-macos-latest/
                 zip -r release-macos-latest.zip release-macos-latest/
 
