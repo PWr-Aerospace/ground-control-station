@@ -106,6 +106,7 @@ const Button = ({ text, onClick, disabled }: ButtonProps) => {
 
 
 function App() {
+
     const [graphData, setGraphData] = useState<GraphData>({
         time: [],
         altitude: [],
@@ -128,6 +129,7 @@ function App() {
     const [isFlightMode, setIsFlightMode] = useState<boolean>(false);
     const [graphDataListener, setGraphDataListener] = useState<Promise<UnlistenFn> | null>(null);
     const [message, setMessage] = useState<string>("");
+    const [gps_position, setGpsPosition] = useState<number[]>([37.199, -80.565]);
 
 
     async function fetchDevices() {
@@ -206,6 +208,7 @@ function App() {
                         tiltx: [...old.tiltx, telemetry.tilt_x],
                         tilty: [...old.tilty, telemetry.tilt_y],
                     }));
+                    setGpsPosition([telemetry.gps_latitude, telemetry.gps_longitude]);
                 }
             );
 
@@ -405,8 +408,9 @@ function App() {
             })
             .catch((e) => console.error("Error sending message to device", e));
     };
-
-    var position = [37.199, -80.565]
+    
+    // var position = [37.201032, -80.575635]
+    
 
 
     return (
@@ -771,12 +775,12 @@ function App() {
                     <TabPanel className="plot-container">
                         {/* <div className="mapbox"> */}
 
-                        <MapContainer center={[position[0], position[1]]} zoom={13} scrollWheelZoom={false} className="mapbox">
+                        <MapContainer center={[gps_position[0], gps_position[1]]} zoom={13} scrollWheelZoom={false} className="mapbox" >
                             <TileLayer
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                url="tiles://localhost/{z}/{x}/{y}.png"
                             />
-                            <Marker position={[position[0], position[1]]}>
+                            <Marker position={[gps_position[0], gps_position[1]]}>
                                 {/* <Popup>
                                     A pretty CSS3 popup. <br /> Easily customizable.
                                 </Popup> */}

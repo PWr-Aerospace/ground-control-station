@@ -1088,12 +1088,14 @@ version = "0.0.0"
 dependencies = [
  "csv",
  "lazy_static",
+ "percent-encoding",
  "serde",
  "serialport",
  "tauri",
  "tauri-build",
  "tokio",
  "tokio-serial",
+ "url",
 ]
 
 [[package]]
