@@ -408,9 +408,9 @@ function App() {
             })
             .catch((e) => console.error("Error sending message to device", e));
     };
-    
+
     // var position = [37.201032, -80.575635]
-    
+
 
 
     return (
@@ -448,10 +448,9 @@ function App() {
                 </div>
                 {/* Fourth Column */}
                 <div>
-                    {/* <Button text="Dupa Button" onClick={sendMessage} /> */}
-                    <Button text="Simulation Enable" disabled={true} />
-                    <Button text="Simulation Activate" disabled={true} />
-                    <Button text="Simulation Disable" disabled={true} />
+                    <Button text="Simulation Enable" onClick={() => sendCustomMessage("CMD,1082,SIM,ENABLE")} disabled={!isConnected} />
+                    <Button text="Simulation Activate" onClick={() => sendCustomMessage("CMD,1082,SIM,ACTIVATE")} disabled={!isConnected} />
+                    <Button text="Simulation Disable" onClick={() => sendCustomMessage("CMD,1082,SIM,DISABLE")} disabled={!isConnected} />
                     <Button text="Refresh Devices" onClick={fetchDevices} disabled={(isConnected || (!isFlightMode && !isSimulationMode))} />
 
                     <select value={selectedDevice} onChange={handleDeviceChange} disabled={(isConnected || (!isFlightMode && !isSimulationMode))}>
@@ -477,8 +476,9 @@ function App() {
                 <Tabs className="tab-buttons">
                     <TabList>
                         <Tab className="tab-button">Plots</Tab>
-                        <Tab className="tab-button">Map</Tab>
-                        <Tab className="tab-button">Custom Commands</Tab>
+                        <Tab className="tab-button">Offline Map</Tab>
+                        <Tab className="tab-button">Online Map</Tab>
+                        <Tab className="tab-button">Commands</Tab>
                         <Tab className="tab-button">Temperature</Tab>
                     </TabList>
 
@@ -773,8 +773,6 @@ function App() {
 
                     </TabPanel>
                     <TabPanel className="plot-container">
-                        {/* <div className="mapbox"> */}
-
                         <MapContainer center={[gps_position[0], gps_position[1]]} zoom={13} scrollWheelZoom={false} className="mapbox" >
                             <TileLayer
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -786,7 +784,19 @@ function App() {
                                 </Popup> */}
                             </Marker>
                         </MapContainer>
-                        {/* </div> */}
+                    </TabPanel>
+                    <TabPanel className="plot-container">
+                        <MapContainer center={[gps_position[0], gps_position[1]]} zoom={13} scrollWheelZoom={false} className="mapbox" >
+                            <TileLayer
+                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            />
+                            <Marker position={[gps_position[0], gps_position[1]]}>
+                                {/* <Popup>
+                                    A pretty CSS3 popup. <br /> Easily customizable.
+                                </Popup> */}
+                            </Marker>
+                        </MapContainer>
                     </TabPanel>
                     <TabPanel className="plot-container" >
                         <div>
@@ -849,9 +859,8 @@ function App() {
                                 },
                                 scales: {
                                     y: {
-
-                                        min: 20,
-                                        max: 100,
+                                        // min: 20,
+                                        // max: 100,
                                         ticks: {
                                             precision: 1,
                                             font: {
