@@ -53,8 +53,8 @@ void loop()
   static float voltage = 4.2;
   static String gps_time = "13:14:02";
   static float gps_altitude = 100.0;
-  static float gps_latitude = 50.0;
-  static float gps_longitude = -120.0;
+  static float gps_latitude = 37.201032;
+  static float gps_longitude = -80.575635;
   static int gps_sats = 10;
   static float tilt_x = 0.0;
   static float tilt_y = 0.0;

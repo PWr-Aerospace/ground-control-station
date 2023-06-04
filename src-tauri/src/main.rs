@@ -2,13 +2,17 @@
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
 )]
+extern crate url;
 
 use csv::WriterBuilder;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serialport::available_ports;
 use std::fs::OpenOptions;
+use std::io::Read;
+
 use std::{env, fs::File, sync::Arc};
+use tauri::http::{header::*, status::StatusCode, ResponseBuilder};
 use tauri::{AppHandle, Manager};
 use tokio::io::{split, AsyncReadExt, AsyncWriteExt, WriteHalf};
 use tokio_serial::{SerialPortBuilderExt, SerialStream};
@@ -92,6 +96,42 @@ async fn main() {
             tauri::Menu::os_default(&context.package_info().name)
         } else {
             tauri::Menu::default()
+        })
+        .register_uri_scheme_protocol("tiles", |app, request| {
+            let path = request.uri().strip_prefix("tiles://localhost/").unwrap();
+            let path = percent_encoding::percent_decode(path.as_bytes())
+                .decode_utf8_lossy()
+                .to_string();
+            // This needs to be fixed
+            let tile_resources_path = app
+                .path_resolver()
+                .resolve_resource(format!("tiles_download/{}", path))
+                .expect("Cannot reolve tile resource.");
+            println!("Resolved resources path: {:?}", tile_resources_path);
+            // let tile_resources_path = app.
+            let mut file = match File::open(&tile_resources_path) {
+                Ok(file) => file,
+                Err(_) => {
+                    return ResponseBuilder::new()
+                        .status(StatusCode::NOT_FOUND)
+                        .body(Vec::new())
+                }
+            };
+
+            let mut buf = Vec::new();
+            match file.read_to_end(&mut buf) {
+                Ok(_) => {}
+                Err(_) => {
+                    return ResponseBuilder::new()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Vec::new())
+                }
+            };
+
+            ResponseBuilder::new()
+                .status(StatusCode::OK)
+                .header(CONTENT_TYPE, "image/png")
+                .body(buf)
         })
         .on_page_load(move |_, _| {})
         .invoke_handler(tauri::generate_handler![

@@ -5,8 +5,10 @@ import { Tab, Tabs, TabList, TabPanel } from "react-tabs";
 import "./styles.css";
 import { invoke } from '@tauri-apps/api/tauri';
 import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+import { Chart as ChartJS, Tooltip } from "chart.js";
 import { dialog } from '@tauri-apps/api';
+import { MapContainer, Marker, TileLayer } from 'react-leaflet'
+import "leaflet/dist/leaflet.css";
 
 import {
     CategoryScale,
@@ -103,6 +105,7 @@ const Button = ({ text, onClick, disabled }: ButtonProps) => {
 
 
 function App() {
+
     const [graphData, setGraphData] = useState<GraphData>({
         time: [],
         altitude: [],
@@ -125,6 +128,7 @@ function App() {
     const [isFlightMode, setIsFlightMode] = useState<boolean>(false);
     const [graphDataListener, setGraphDataListener] = useState<Promise<UnlistenFn> | null>(null);
     const [message, setMessage] = useState<string>("");
+    const [gps_position, setGpsPosition] = useState<number[]>([37.199, -80.565]);
 
 
     async function fetchDevices() {
@@ -203,6 +207,7 @@ function App() {
                         tiltx: [...old.tiltx, telemetry.tilt_x],
                         tilty: [...old.tilty, telemetry.tilt_y],
                     }));
+                    setGpsPosition([telemetry.gps_latitude, telemetry.gps_longitude]);
                 }
             );
 
@@ -403,6 +408,9 @@ function App() {
             .catch((e) => console.error("Error sending message to device", e));
     };
 
+    // var position = [37.201032, -80.575635]
+
+
 
     return (
         <div className="App">
@@ -432,17 +440,16 @@ function App() {
                 <div>
                     <Button text="Flight Mode" onClick={setAsFLightMode} disabled={isFlightMode || isSimulationMode} />
                     <Button text="Simulation Mode" onClick={setSimulationMode} disabled={isFlightMode || isSimulationMode} />
-                    <Button text="Connect and Start Reading" onClick={startConnection} disabled={!isFlightMode && !isSimulationMode} />
+                    <Button text="Connect and Start Reading" onClick={startConnection} disabled={(!isFlightMode && !isSimulationMode) || isConnected} />
                     <Button text="Start Sending Data in Simulation Mode" onClick={startSendingSimulationData} disabled={(!isSimulationDataLoaded || !isConnected) || isSendingSimulationData} />
                     <Button text="Load CSV Simulation" onClick={loadSimulationData} disabled={(!isSimulationDataLoaded && !isSimulationMode) || isSendingSimulationData} />
                     <Button text="Save CSV" onClick={stopAndSaveCSV} disabled={!isConnected} />
                 </div>
                 {/* Fourth Column */}
                 <div>
-                    {/* <Button text="Dupa Button" onClick={sendMessage} /> */}
-                    <Button text="Simulation Enable" disabled={true} />
-                    <Button text="Simulation Activate" disabled={true} />
-                    <Button text="Simulation Disable" disabled={true} />
+                    <Button text="Simulation Enable" onClick={() => sendCustomMessage("CMD,1082,SIM,ENABLE")} disabled={!isConnected} />
+                    <Button text="Simulation Activate" onClick={() => sendCustomMessage("CMD,1082,SIM,ACTIVATE")} disabled={!isConnected} />
+                    <Button text="Simulation Disable" onClick={() => sendCustomMessage("CMD,1082,SIM,DISABLE")} disabled={!isConnected} />
                     <Button text="Refresh Devices" onClick={fetchDevices} disabled={(isConnected || (!isFlightMode && !isSimulationMode))} />
 
                     <select value={selectedDevice} onChange={handleDeviceChange} disabled={(isConnected || (!isFlightMode && !isSimulationMode))}>
@@ -468,8 +475,9 @@ function App() {
                 <Tabs className="tab-buttons">
                     <TabList>
                         <Tab className="tab-button">Plots</Tab>
-                        <Tab className="tab-button">Map</Tab>
-                        <Tab className="tab-button">Custom Commands</Tab>
+                        <Tab className="tab-button">Offline Map</Tab>
+                        <Tab className="tab-button">Online Map</Tab>
+                        <Tab className="tab-button">Commands</Tab>
                         <Tab className="tab-button">Temperature</Tab>
                     </TabList>
 
@@ -764,7 +772,30 @@ function App() {
 
                     </TabPanel>
                     <TabPanel className="plot-container">
-                        Mapa TBD
+                        <MapContainer center={[gps_position[0], gps_position[1]]} zoom={13} scrollWheelZoom={false} className="mapbox" >
+                            <TileLayer
+                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                url="tiles://localhost/{z}/{x}/{y}.png"
+                            />
+                            <Marker position={[gps_position[0], gps_position[1]]}>
+                                {/* <Popup>
+                                    A pretty CSS3 popup. <br /> Easily customizable.
+                                </Popup> */}
+                            </Marker>
+                        </MapContainer>
+                    </TabPanel>
+                    <TabPanel className="plot-container">
+                        <MapContainer center={[gps_position[0], gps_position[1]]} zoom={13} scrollWheelZoom={false} className="mapbox" >
+                            <TileLayer
+                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            />
+                            <Marker position={[gps_position[0], gps_position[1]]}>
+                                {/* <Popup>
+                                    A pretty CSS3 popup. <br /> Easily customizable.
+                                </Popup> */}
+                            </Marker>
+                        </MapContainer>
                     </TabPanel>
                     <TabPanel className="plot-container" >
                         <div>
@@ -827,9 +858,8 @@ function App() {
                                 },
                                 scales: {
                                     y: {
-
-                                        min: 20,
-                                        max: 100,
+                                        // min: 20,
+                                        // max: 100,
                                         ticks: {
                                             precision: 1,
                                             font: {
