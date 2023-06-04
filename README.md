@@ -14,6 +14,8 @@ In addition send commands and transfers specified data to the probe.
 
 ![Map demo](img/secondone.png)
 
+![Second map demo](img/thirdone.png)
+
 ## Development
 
 In order to locally run development versions and build your own follow these steps to setup your local environment:
