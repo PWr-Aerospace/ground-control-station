@@ -5,9 +5,9 @@ import { Tab, Tabs, TabList, TabPanel } from "react-tabs";
 import "./styles.css";
 import { invoke } from '@tauri-apps/api/tauri';
 import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+import { Chart as ChartJS, Tooltip } from "chart.js";
 import { dialog } from '@tauri-apps/api';
-import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet'
+import { MapContainer, Marker, TileLayer } from 'react-leaflet'
 import "leaflet/dist/leaflet.css";
 
 import {
@@ -17,7 +17,6 @@ import {
     LineElement,
     Title,
 } from 'chart.js';
-import { Popup } from "react-leaflet";
 
 ChartJS.register(
     CategoryScale,

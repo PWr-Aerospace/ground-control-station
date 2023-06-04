@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serialport::available_ports;
 use std::fs::OpenOptions;
 use std::io::Read;
-use std::path::Path;
+
 use std::{env, fs::File, sync::Arc};
 use tauri::http::{header::*, status::StatusCode, ResponseBuilder};
 use tauri::{AppHandle, Manager};
