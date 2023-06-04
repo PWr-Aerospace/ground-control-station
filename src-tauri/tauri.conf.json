@@ -22,7 +22,8 @@
         "removeDir": true,
         "removeFile": true,
         "renameFile": true,
-        "exists": true
+        "exists": true,
+        "scope": ["$RESOURCE/*"]
       },
       "path": {
         "all": true
@@ -43,7 +44,7 @@
     },
     "bundle": {
       "resources": [
-        "../tiles_download/*"
+        "tiles_download/*"
       ],
       "active": true,
       "icon": [

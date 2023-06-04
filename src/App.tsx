@@ -441,7 +441,7 @@ function App() {
                 <div>
                     <Button text="Flight Mode" onClick={setAsFLightMode} disabled={isFlightMode || isSimulationMode} />
                     <Button text="Simulation Mode" onClick={setSimulationMode} disabled={isFlightMode || isSimulationMode} />
-                    <Button text="Connect and Start Reading" onClick={startConnection} disabled={!isFlightMode && !isSimulationMode} />
+                    <Button text="Connect and Start Reading" onClick={startConnection} disabled={(!isFlightMode && !isSimulationMode) || isConnected} />
                     <Button text="Start Sending Data in Simulation Mode" onClick={startSendingSimulationData} disabled={(!isSimulationDataLoaded || !isConnected) || isSendingSimulationData} />
                     <Button text="Load CSV Simulation" onClick={loadSimulationData} disabled={(!isSimulationDataLoaded && !isSimulationMode) || isSendingSimulationData} />
                     <Button text="Save CSV" onClick={stopAndSaveCSV} disabled={!isConnected} />
