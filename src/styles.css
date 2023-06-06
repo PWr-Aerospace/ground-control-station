@@ -86,7 +86,7 @@ code {
     top: 0;
     width: 100%;
     height: 500px; /* or a fixed value */
-    margin: 50px auto 0;
+    margin: 40px auto 0;
     bottom: 0;
 }
 .plot-container2 {
@@ -94,7 +94,7 @@ code {
     top: 0;
     width: 100%;
     height: 550px; /* or a fixed value */
-    margin: 50px auto 0;
+    margin: 40px auto 0;
     bottom: 0;
 }
 
@@ -118,16 +118,35 @@ select:disabled {
 }
 
 .chart-item {
-    width: 500px;
-    height: 300px;
+    width: 450px;
+    height: 240px;
 }
 
 .chart-item2 {
-    width: 1800px;
-    height: 600px;
+    width: 1300px;
+    height: 500px;
 }
 
 .mapbox {
-    width: 700px;
+    width: 1200px;
     height: 500px;
+}
+
+.custom-message {
+  margin-bottom: 20px; /* add some space between the message input and buttons */
+  display: flex; /* makes the input and button sit on the same line */
+  width: 1200px;
+}
+
+.custom-message input {
+  flex-grow: 1; /* makes the input take up the remaining space */
+  margin-right: 10px; /* adds some space between the input and the button */
+}
+
+
+.gridbuttons {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr); /* 5 columns */
+  gap: 5px; /* gap between grid items */
+  margin-bottom: 10px; /* space between this grid and the next */
 }
