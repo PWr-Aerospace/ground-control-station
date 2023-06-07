@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "ground-control-station",
-    "version": "0.0.0"
+    "version": "0.1.0"
   },
   "tauri": {
     "allowlist": {
@@ -44,7 +44,8 @@
     },
     "bundle": {
       "resources": [
-        "tiles_download/*"
+        "tiles_download/*",
+        "leaflet/images/*"
       ],
       "active": true,
       "icon": [
