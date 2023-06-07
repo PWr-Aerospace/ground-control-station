@@ -44,7 +44,8 @@
     },
     "bundle": {
       "resources": [
-        "tiles_download/*"
+        "tiles_download/*",
+        "leaflet/images/*"
       ],
       "active": true,
       "icon": [

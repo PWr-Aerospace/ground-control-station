@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import "./index.css";
 import { Tab, Tabs, TabList, TabPanel } from "react-tabs";
@@ -17,6 +17,7 @@ import {
   LineElement,
   Title,
 } from 'chart.js';
+import L from "leaflet";
 
 ChartJS.register(
   CategoryScale,
@@ -66,8 +67,9 @@ interface GraphData {
 }
 
 async function getFileSavePath() {
+  console.log("Trying to save csv file...")
   const result = await dialog.save({
-    defaultPath: 'flight_data.csv',
+    defaultPath: 'Flight_1082.csv',
   });
 
   if (result === null) {
@@ -106,6 +108,14 @@ const Button = ({ text, onClick, disabled }: ButtonProps) => {
 
 function App() {
 
+  const [logs, setLogs] = useState<string[]>([]);
+  const logsContainerRef = useRef<null | HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    if (logsContainerRef.current) {
+      logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+    }
+  }
   const [graphData, setGraphData] = useState<GraphData>({
     time: [],
     altitude: [],
@@ -132,6 +142,7 @@ function App() {
 
 
   async function fetchDevices() {
+    console.log("Trying to fetch devices");
     try {
       const deviceList = await invoke<string[]>("get_serial_ports_command");
       setDevices(deviceList);
@@ -141,11 +152,23 @@ function App() {
   }
 
   useEffect(() => {
+    const originalLog = console.log;
+    console.log = (...args) => {
+      setLogs((prevLogs) => [...prevLogs, args.join(' ')]);
+      originalLog(...args);
+    };
+    return () => {
+      console.log = originalLog;
+    };
+  }, []);
+
+  useEffect(() => {
 
     fetchDevices();
   }, []);
 
   const sendMessage = async () => {
+    console.log(`Sending '${message}' message...`);
     await invoke('send_message_to_device', { message })
       .then(() => {
         console.log("Message sent successfully");
@@ -178,12 +201,13 @@ function App() {
       await invoke("save_csv", { output_file: filePath });
       // setIsConnected(false);
     } catch (error) {
-      console.error("Failed to disconnect and save CSV:", error);
+      console.error("Failed to save CSV:", error);
     }
   };
 
 
   const startConnection = async () => {
+    console.log("Connecing to the device...")
     if (!selectedDevice) {
       alert("Please select a device before starting.");
       return;
@@ -208,91 +232,109 @@ function App() {
             tilty: [...old.tilty, telemetry.tilt_y],
           }));
           setGpsPosition([telemetry.gps_latitude, telemetry.gps_longitude]);
+          const telemetryString = `${telemetry.team_id},${telemetry.mission_time},${telemetry.packet_count},${telemetry.mode},${telemetry.state},${telemetry.altitude},${telemetry.hs_deployed},${telemetry.pc_deployed},${telemetry.mast_raised},${telemetry.temperature},${telemetry.pressure},${telemetry.voltage},${telemetry.gps_time},${telemetry.gps_altitude},${telemetry.gps_latitude},${telemetry.gps_longitude},${telemetry.gps_sats},${telemetry.tilt_x},${telemetry.tilt_y},${telemetry.cmd_echo}`;
+
+          console.log(`Received: ${telemetryString}`);
         }
       );
 
       // Save listener to state so we can unlisten later
-      setGraphDataListener(graphDataListener);
+      // setGraphDataListener(graphDataListener);
 
     } catch (error) {
       console.error("Failed to connect to the device:", error);
     }
   };
 
-  const startSimulation = async () => {
+  // const startSimulation = async () => {
+  //   console.log("Starting simulation mode");
+  //   if (!selectedDevice) {
+  //     alert("Please select a device before starting.");
+  //     return;
+  //   }
 
-    if (!selectedDevice) {
-      alert("Please select a device before starting.");
-      return;
-    }
 
+  //   try {
+  //     await invoke("start_simulation", { device: selectedDevice, baudrate: selectedBaudRate });
+  //     setIsConnected(true);
+  //     setIsRecording(true);
 
-    try {
-      await invoke("start_simulation", { device: selectedDevice, baudrate: selectedBaudRate });
-      setIsConnected(true);
-      setIsRecording(true);
+  //     const graphDataListener = listen(
+  //       "graph-data",
+  //       ({ payload: telemetry }: { payload: Telemetry }) => {
+  //         setLatestTelemetry(telemetry);
+  //         setGraphData((old) => ({
+  //           time: [...old.time, telemetry.mission_time],
+  //           altitude: [...old.altitude, telemetry.altitude],
+  //           temperature: [...old.temperature, telemetry.temperature],
+  //           pressure: [...old.pressure, telemetry.pressure],
+  //           voltage: [...old.voltage, telemetry.voltage],
+  //           tiltx: [...old.tiltx, telemetry.tilt_x],
+  //           tilty: [...old.tilty, telemetry.tilt_y],
+  //         }));
 
-      const graphDataListener = listen(
-        "graph-data",
-        ({ payload: telemetry }: { payload: Telemetry }) => {
-          setLatestTelemetry(telemetry);
-          setGraphData((old) => ({
-            time: [...old.time, telemetry.mission_time],
-            altitude: [...old.altitude, telemetry.altitude],
-            temperature: [...old.temperature, telemetry.temperature],
-            pressure: [...old.pressure, telemetry.pressure],
-            voltage: [...old.voltage, telemetry.voltage],
-            tiltx: [...old.tiltx, telemetry.tilt_x],
-            tilty: [...old.tilty, telemetry.tilt_y],
-          }));
-        }
-      );
+  //         setGpsPosition([telemetry.gps_latitude, telemetry.gps_longitude]);
+  //         const telemetryString = `${telemetry.team_id},${telemetry.mission_time},${telemetry.packet_count},${telemetry.mode},${telemetry.state},${telemetry.altitude},${telemetry.hs_deployed},${telemetry.pc_deployed},${telemetry.mast_raised},${telemetry.temperature},${telemetry.pressure},${telemetry.voltage},${telemetry.gps_time},${telemetry.gps_altitude},${telemetry.gps_latitude},${telemetry.gps_longitude},${telemetry.gps_sats},${telemetry.tilt_x},${telemetry.tilt_y},${telemetry.cmd_echo}`;
 
-      // Save listener to state so we can unlisten later
-      setGraphDataListener(graphDataListener);
+  //         console.log(`Received: ${telemetryString}`);
+  //       }
+  //     );
 
-    } catch (error) {
-      console.error("Failed to connect to the device:", error);
-    }
-  }
+  //     // Save listener to state so we can unlisten later
+  //     setGraphDataListener(graphDataListener);
+
+  //   } catch (error) {
+  //     console.error("Failed to connect to the device:", error);
+  //   }
+  // }
 
   const handleDeviceChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedDevice(event.target.value);
+    console.log(`Selected '${event.target.value}' device`);
   };
 
   const handleBaudRateChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedBaudRate(parseInt(event.target.value));
+    console.log(`Selected '${event.target.value}' baud rate`);
+
   };
 
 
 
-  useEffect(() => {
-    if (!isConnected || !isRecording) {
-      return;
-    }
+  // useEffect(() => {
+  //   if (!isConnected || !isRecording) {
+  //     return;
+  //   }
 
-    const graphDataListener = listen(
-      "graph-data",
-      ({ payload: telemetry }: { payload: Telemetry }) => {
-        setLatestTelemetry(telemetry);
-        setGraphData((old) => ({
-          time: [...old.time, telemetry.mission_time],
-          altitude: [...old.altitude, telemetry.altitude],
-          temperature: [...old.temperature, telemetry.temperature],
-          pressure: [...old.pressure, telemetry.pressure],
-          voltage: [...old.voltage, telemetry.voltage],
-          tiltx: [...old.tiltx, telemetry.tilt_x],
-          tilty: [...old.tilty, telemetry.tilt_y],
-        }));
-      }
-    );
+  //   const graphDataListener = listen(
+  //     "graph-data",
+  //     ({ payload: telemetry }: { payload: Telemetry }) => {
+  //       setLatestTelemetry(telemetry);
+  //       setGraphData((old) => ({
+  //         time: [...old.time, telemetry.mission_time],
+  //         altitude: [...old.altitude, telemetry.altitude],
+  //         temperature: [...old.temperature, telemetry.temperature],
+  //         pressure: [...old.pressure, telemetry.pressure],
+  //         voltage: [...old.voltage, telemetry.voltage],
+  //         tiltx: [...old.tiltx, telemetry.tilt_x],
+  //         tilty: [...old.tilty, telemetry.tilt_y],
+  //       }));
 
-    return () => {
-      graphDataListener.then((unlisten: UnlistenFn) => {
-        unlisten();
-      });
-    };
-  }, [isConnected, isRecording]);
+  //       setGpsPosition([telemetry.gps_latitude, telemetry.gps_longitude]);
+  //       const telemetryString = `${telemetry.team_id},${telemetry.mission_time},${telemetry.packet_count},${telemetry.mode},${telemetry.state},${telemetry.altitude},${telemetry.hs_deployed},${telemetry.pc_deployed},${telemetry.mast_raised},${telemetry.temperature},${telemetry.pressure},${telemetry.voltage},${telemetry.gps_time},${telemetry.gps_altitude},${telemetry.gps_latitude},${telemetry.gps_longitude},${telemetry.gps_sats},${telemetry.tilt_x},${telemetry.tilt_y},${telemetry.cmd_echo}`;
+
+  //       console.log(`Received: ${telemetryString}`);
+
+  //       setGraphDataListener(graphDataListener);
+  //     }
+  //   );
+
+  //   return () => {
+  //     graphDataListener.then((unlisten: UnlistenFn) => {
+  //       unlisten();
+  //     });
+  //   };
+  // }, [isConnected, isRecording]);
 
 
   const altitudeData = {
@@ -359,14 +401,17 @@ function App() {
   };
 
   const setAsFLightMode = async () => {
+    console.log("Entering Flight mode");
     setIsFlightMode(true);
   };
 
   const setSimulationMode = async () => {
+    console.log("Entering Simulation mode");
     setIsSimulationMode(true);
   };
 
   const loadSimulationData = async () => {
+    console.log("Loading simulation data...");
     const result = await dialog.open({
       multiple: false,
     });
@@ -384,6 +429,7 @@ function App() {
 
   const startSendingSimulationData = async () => {
     // await invoke("start_sending_simulation_data");
+    console.log("Starting the sending of simulation data...");
     if (!selectedDevice) {
       alert("Please select a device before starting.");
       return;
@@ -411,6 +457,14 @@ function App() {
   // var position = [37.201032, -80.575635]
 
 
+  // url="tiles://localhost/{z}/{x}/{y}.png"
+  useEffect(scrollToBottom, [logs]);
+  const myIcon = L.icon({
+    iconUrl: 'images://localhost/marker-icon.png',
+    iconSize: [25, 41], // size of the icon, you may need to adjust based on your icon
+    iconAnchor: [12.5, 41], // point of the icon which will correspond to marker's location
+    popupAnchor: [0, -41], // point from which the popup should open relative to the iconAnchor
+  });
 
   return (
     <div className="App">
@@ -479,6 +533,7 @@ function App() {
             <Tab className="tab-button">Online Map</Tab>
             <Tab className="tab-button">Commands</Tab>
             <Tab className="tab-button">Temperature</Tab>
+            <Tab className="tab-button">Logs</Tab>
           </TabList>
 
           <TabPanel className="plot-container" >
@@ -777,10 +832,7 @@ function App() {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="tiles://localhost/{z}/{x}/{y}.png"
               />
-              <Marker position={[gps_position[0], gps_position[1]]}>
-                {/* <Popup>
-                                    A pretty CSS3 popup. <br /> Easily customizable.
-                                </Popup> */}
+              <Marker position={[gps_position[0], gps_position[1]]} icon={myIcon}>
               </Marker>
             </MapContainer>
           </TabPanel>
@@ -790,10 +842,7 @@ function App() {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-              <Marker position={[gps_position[0], gps_position[1]]}>
-                {/* <Popup>
-                                    A pretty CSS3 popup. <br /> Easily customizable.
-                                </Popup> */}
+              <Marker position={[gps_position[0], gps_position[1]]} icon={myIcon}>
               </Marker>
             </MapContainer>
           </TabPanel>
@@ -815,6 +864,9 @@ function App() {
                 const formattedTime = `${hours}:${minutes}:${seconds}`;
                 sendCustomMessage(`CMD,1082,ST,${formattedTime}`);
               }} disabled={!isConnected} />
+
+              <Button text="Payload Telemetry On Command" onClick={() => sendCustomMessage("CMD,1082,CX,ON")} disabled={!isConnected} />
+              <Button text="Payload Telemetry Off Command" onClick={() => sendCustomMessage("CMD,1082,CX,OFF")} disabled={!isConnected} />
               <div className="gridbuttons">
 
                 <Button text="Motor CW 0" onClick={() => sendCustomMessage("CMD,1082,MOTOR,CW,0")} disabled={!isConnected} />
@@ -903,6 +955,25 @@ function App() {
               }} data={temperatureData} />
             </div>
 
+          </TabPanel>
+          <TabPanel>
+            <div
+              ref={logsContainerRef}
+              style={{
+                overflow: 'auto',
+                maxHeight: '500px',
+                width: '1300px',
+                backgroundColor: '#f8f8f8',
+                fontFamily: 'monospace',
+                whiteSpace: 'pre-wrap',
+                padding: '10px',
+                lineHeight: '1.5',
+                margin: '40px auto 0',
+
+                borderRadius: '5px',
+              }}>
+              {logs.map((log, index) => <p key={index}>{log}</p>)}
+            </div>
           </TabPanel>
         </Tabs>
       </div>

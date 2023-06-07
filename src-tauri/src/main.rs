@@ -4,13 +4,18 @@
 )]
 extern crate url;
 
+use core::panic;
 use csv::WriterBuilder;
 use lazy_static::lazy_static;
+use serde::ser::{Serializer};
 use serde::{Deserialize, Serialize};
 use serialport::available_ports;
 use std::fs::OpenOptions;
-use std::io::Read;
+use std::io::{Read};
+use std::path::PathBuf;
 
+use chrono::{DateTime, Datelike, Timelike, Utc};
+use dirs;
 use std::{env, fs::File, sync::Arc};
 use tauri::http::{header::*, status::StatusCode, ResponseBuilder};
 use tauri::{AppHandle, Manager};
@@ -37,6 +42,7 @@ struct Telemetry {
     state: String,
     /// ALTITUDE is the altitude in units of meters and must be relative to ground level at the
     /// launch site. The resolution must be 0.1 meters
+    #[serde(serialize_with = "format_f32_1")]
     altitude: f32,
     /// 'P' indicates the Probe with heat shield is deployed, 'N' otherwise
     hs_deployed: String,
@@ -45,23 +51,29 @@ struct Telemetry {
     /// 'M' indicates the flag mast has been raised after landing, 'N' otherwise
     mast_raised: String,
     /// TEMPERATURE is the temperature in degrees Celsius with a resolution of 0.1 degrees
+    #[serde(serialize_with = "format_f32_1")]
     temperature: f32,
     /// PRESSURE is the air pressure of the sensor used. Value must be in kPa with
     /// a resolution of 0.1 kPa
+    #[serde(serialize_with = "format_f32_1")]
     pressure: f32,
     /// VOLTAGE is the voltage of the CanSat power bus with a resolution of 0.1 volts
+    #[serde(serialize_with = "format_f32_1")]
     voltage: f32,
     /// GPS_TIME is the time from the GPS receiver. The time must be reported in UTC and
     /// have a resolution of a second
     gps_time: String,
     /// GPS_ALTITUDE is the altitude from the GPS receiver in meters above mean sea
     /// level with a resolution of 0.1 meters
+    #[serde(serialize_with = "format_f32_1")]
     gps_altitude: f32,
     /// GPS_LATITUDE is the latitude from the GPS receiver in decimal degrees with a
     /// resolution of 0.0001 degrees North
+    #[serde(serialize_with = "format_f32_4")]
     gps_latitude: f32,
     /// GPS_LONGITUDE is the longitude from the GPS receiver in decimal degrees with a
     /// resolution of 0.0001 degrees West
+    #[serde(serialize_with = "format_f32_4")]
     gps_longitude: f32,
     /// GPS_SATS is the number of GPS satellites being tracked by the GPS receiver. This
     /// must be an integer
@@ -70,12 +82,38 @@ struct Telemetry {
     /// resolution of 0.01 degrees, where zero degrees is defined as when the axes are
     /// perpendicular to the Z axis which is defined as towards the center of gravity of the
     /// Earth
+    #[serde(serialize_with = "format_f32_2")]
     tilt_x: f32,
+    #[serde(serialize_with = "format_f32_2")]
     tilt_y: f32,
     /// CMD_ECHO is the text of the last command received and processed by the CanSat.
     /// For example, CXON or SP101325. See the command section for details of command
     /// formats. Do not include commas characters
     cmd_echo: String,
+}
+
+fn format_f32_2<S>(value: &f32, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let formatted = format!("{:.2}", value);
+    serializer.serialize_str(&formatted)
+}
+
+fn format_f32_1<S>(value: &f32, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let formatted = format!("{:.1}", value);
+    serializer.serialize_str(&formatted)
+}
+
+fn format_f32_4<S>(value: &f32, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let formatted = format!("{:.4}", value);
+    serializer.serialize_str(&formatted)
 }
 
 lazy_static! {
@@ -106,7 +144,44 @@ async fn main() {
             let tile_resources_path = app
                 .path_resolver()
                 .resolve_resource(format!("tiles_download/{}", path))
-                .expect("Cannot reolve tile resource.");
+                .expect("Cannot resolve tile resource.");
+            println!("Resolved resources path: {:?}", tile_resources_path);
+            // let tile_resources_path = app.
+            let mut file = match File::open(&tile_resources_path) {
+                Ok(file) => file,
+                Err(_) => {
+                    return ResponseBuilder::new()
+                        .status(StatusCode::NOT_FOUND)
+                        .body(Vec::new())
+                }
+            };
+
+            let mut buf = Vec::new();
+            match file.read_to_end(&mut buf) {
+                Ok(_) => {}
+                Err(_) => {
+                    return ResponseBuilder::new()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Vec::new())
+                }
+            };
+
+            ResponseBuilder::new()
+                .status(StatusCode::OK)
+                .header(CONTENT_TYPE, "image/png")
+                .body(buf)
+        })
+        .register_uri_scheme_protocol("images", |app, request| {
+            // url="tiles://localhost/{z}/{x}/{y}.png"
+            let path = request.uri().strip_prefix("images://localhost/").unwrap();
+            let path = percent_encoding::percent_decode(path.as_bytes())
+                .decode_utf8_lossy()
+                .to_string();
+            // This needs to be fixed
+            let tile_resources_path = app
+                .path_resolver()
+                .resolve_resource(format!("leaflet/images/{}", path))
+                .expect("Cannot resolve tile resource.");
             println!("Resolved resources path: {:?}", tile_resources_path);
             // let tile_resources_path = app.
             let mut file = match File::open(&tile_resources_path) {
@@ -171,9 +246,47 @@ async fn start_connection_and_reading(
             println!("Passed the shared write port to the aliens");
 
             println!("Spawning reading thread");
+            // Add a temp file
+            let now: DateTime<Utc> = Utc::now();
+            let filename = format!(
+                "temp_flight_data_{:04}{:02}{:02}_{:02}-{:02}-{:02}_UTC.txt",
+                now.year(),
+                now.month(),
+                now.day(),
+                now.hour(),
+                now.minute(),
+                now.second()
+            );
+
+            let mut path = match dirs::home_dir() {
+                Some(path) => PathBuf::from(path),
+                None => {
+                    panic!("Failed to create temp file!");
+                }
+            };
+
+            // Add the ".gcs" directory to the path
+            path.push(".gcs");
+
+            // Create the directory if it doesn't exist
+            std::fs::create_dir_all(&path).unwrap();
+
+            // Add the filename to the path
+            path.push(filename);
+
+            let temp_file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&path)
+                .map_err(|e| format!("Error opening file at {:?}: {}", path, e))?;
+
             // Read task
             tokio::spawn(async move {
                 let mut message = String::new();
+                let mut csv_writer = WriterBuilder::new()
+                    .has_headers(true)
+                    .from_writer(temp_file);
                 loop {
                     match read_port.read_u8().await {
                         Ok(byte) => {
@@ -193,12 +306,19 @@ async fn start_connection_and_reading(
                                         }
                                     };
                                     // println!("{:#?}", telemetry);
+                                    if telemetry.team_id == 1082 {
+                                        // Write to the temp file
+                                        let _ = csv_writer.serialize(telemetry.clone());
+                                        let _ = csv_writer.flush();
 
-                                    let mut all_telemetry = TELEMETRY.lock().await;
-                                    app_handle
-                                        .emit_all("graph-data", telemetry.clone())
-                                        .expect("failed to emit event");
-                                    all_telemetry.push(telemetry.clone());
+                                        let mut all_telemetry = TELEMETRY.lock().await;
+                                        app_handle
+                                            .emit_all("graph-data", telemetry.clone())
+                                            .expect("failed to emit event");
+                                        all_telemetry.push(telemetry.clone());
+                                    } else {
+                                        println!("The received packet didnt have team is 1082")
+                                    }
                                 }
 
                                 message.clear();
@@ -232,7 +352,7 @@ async fn save_csv(output_file: String) -> Result<(), String> {
         .open(&output_file)
         .map_err(|e| format!("Error opening file at {}: {}", output_file, e))?;
 
-    let mut csv_writer = WriterBuilder::new().has_headers(false).from_writer(file);
+    let mut csv_writer = WriterBuilder::new().has_headers(true).from_writer(file);
 
     for t in telemetry.iter() {
         csv_writer
@@ -269,7 +389,7 @@ async fn send_message_to_device(message: String) -> Result<(), String> {
     let mut shared_sender_lock = SHARED_SENDER.lock().await;
     println!("Got lock on the sender");
     if let Some(shared_sender) = shared_sender_lock.as_mut() {
-        println!("Got sahred sender as mut");
+        println!("Got shared sender as mut");
         match shared_sender.write_all(new_message.as_bytes()).await {
             Ok(_) => {
                 println!("Wrote command to port");
