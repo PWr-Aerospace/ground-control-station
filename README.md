@@ -10,11 +10,17 @@ CanSat Ground Control Station.
 Gathers telemetry from the CanSat probe and displays the data to the UI.
 In addition send commands and transfers specified data to the probe.
 
-![Telemetry demo](img/firstone.png)
+![Telemetry demo](img/plots.png)
 
-![Map demo](img/secondone.png)
+![Map demo](img/offline.png)
 
-![Second map demo](img/thirdone.png)
+![Second map demo](img/online.png)
+
+![Commands demo](img/commands.png)
+
+![Temperature demo](img/temp.png)
+
+![Logs demo](img/logs.png)
 
 ## Development
 
