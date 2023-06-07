@@ -7,15 +7,14 @@ extern crate url;
 use core::panic;
 use csv::WriterBuilder;
 use lazy_static::lazy_static;
-use serde::ser::Serializer;
+
 use serde::{Deserialize, Serialize};
 use serialport::available_ports;
 use std::fs::OpenOptions;
 use std::io::Read;
-use std::path::PathBuf;
 
 use chrono::{DateTime, Datelike, Timelike, Utc};
-use dirs;
+
 use std::{env, fs::File, sync::Arc};
 use tauri::http::{header::*, status::StatusCode, ResponseBuilder};
 use tauri::{AppHandle, Manager};
@@ -286,7 +285,7 @@ async fn start_connection_and_reading(
             );
 
             let mut path = match dirs::home_dir() {
-                Some(path) => PathBuf::from(path),
+                Some(path) => path,
                 None => {
                     panic!("Failed to create temp file!");
                 }
@@ -337,13 +336,11 @@ async fn start_connection_and_reading(
                                         // Write to the temp file
 
                                         let telemetry_csv = TelemetryCsv {
-                                            team_id: telemetry.team_id.clone(),
+                                            team_id: telemetry.team_id,
                                             mission_time: telemetry
                                                 .mission_time
                                                 .clone(),
-                                            packet_count: telemetry
-                                                .packet_count
-                                                .clone(),
+                                            packet_count: telemetry.packet_count,
                                             mode: telemetry.mode.clone(),
                                             state: telemetry.state.clone(),
                                             altitude: format!(
@@ -378,7 +375,7 @@ async fn start_connection_and_reading(
                                                 "{:.4}",
                                                 telemetry.gps_longitude.clone()
                                             ),
-                                            gps_sats: telemetry.gps_sats.clone(),
+                                            gps_sats: telemetry.gps_sats,
                                             tilt_x: format!(
                                                 "{:.2}",
                                                 telemetry.tilt_x.clone()
@@ -439,9 +436,9 @@ async fn save_csv(output_file: String) -> Result<(), String> {
 
     for t in telemetry.iter() {
         let telemetry_csv = TelemetryCsv {
-            team_id: t.team_id.clone(),
+            team_id: t.team_id,
             mission_time: t.mission_time.clone(),
-            packet_count: t.packet_count.clone(),
+            packet_count: t.packet_count,
             mode: t.mode.clone(),
             state: t.state.clone(),
             altitude: format!("{:.1}", t.altitude.clone()),
@@ -455,7 +452,7 @@ async fn save_csv(output_file: String) -> Result<(), String> {
             gps_altitude: format!("{:.1}", t.gps_altitude.clone()),
             gps_latitude: format!("{:.4}", t.gps_latitude.clone()),
             gps_longitude: format!("{:.4}", t.gps_longitude.clone()),
-            gps_sats: t.gps_sats.clone(),
+            gps_sats: t.gps_sats,
             tilt_x: format!("{:.2}", t.tilt_x.clone()),
             tilt_y: format!("{:.2}", t.tilt_y.clone()),
             cmd_echo: t.cmd_echo.clone(),
