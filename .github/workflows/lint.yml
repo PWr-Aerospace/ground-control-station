@@ -14,6 +14,7 @@ jobs:
         name: 🖋 Check linting
         runs-on: ubuntu-latest
         steps:
+            - uses: actions/checkout@v2
             - uses: actions/cache@v3
               with:
                 path: |
@@ -23,7 +24,6 @@ jobs:
                     ~/.cargo/git/db/
                     src-tauri/target/
                 key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-            - uses: actions/checkout@v2
             - name: install dependencies (ubuntu only)
               run: |
                   sudo apt-get update
