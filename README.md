@@ -52,7 +52,7 @@ In order to locally run development versions and build your own follow these ste
     sudo apt-get update ; sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libudev-dev
     ```
 
-7. Now you should be capable of building the application. Navigate to the root
+7. Now you should be able to build the application. Navigate to the root
 of the cloned repository and run:
 
     For a development build:
