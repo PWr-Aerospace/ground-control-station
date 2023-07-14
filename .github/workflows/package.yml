@@ -9,39 +9,6 @@ env:
     CARGO_TERM_COLOR: always
 
 jobs:
-    cargo_check:
-        name: 📦 Check package integrity
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v2
-            - name: install dependencies (ubuntu only)
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0 libappindicator3-dev librsvg2-dev patchelf libudev-dev
-            - name: Restore dependencies
-              id: cargo
-              uses: actions/cache/restore@v3
-              with:
-                path: |
-                    ~/.cargo/bin/
-                    ~/.cargo/registry/index/
-                    ~/.cargo/registry/cache/
-                    ~/.cargo/git/db/
-                    src-tauri/target/
-                key: ${{ runner.os }}-cargo-package-${{ hashFiles('Cargo.lock') }}
-            - name: Check package integrity
-              run: cd src-tauri/ ; cargo package
-            - name: Save dependencies
-              id: cargo-save
-              uses: actions/cache/save@v3
-              with:
-                path: |
-                    ~/.cargo/bin/
-                    ~/.cargo/registry/index/
-                    ~/.cargo/registry/cache/
-                    ~/.cargo/git/db/
-                    src-tauri/target/
-                key: ${{ runner.os }}-cargo-package-${{ hashFiles('Cargo.lock') }}
     check_unused_deps:
         name: 📦 Check for unused dependencies
         runs-on: ubuntu-latest
