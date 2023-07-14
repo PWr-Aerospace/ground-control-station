@@ -5,7 +5,7 @@
 [![🧪 Tests](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/tests.yml/badge.svg)](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/tests.yml) [![🖋 Check linting](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/lint.yml/badge.svg)](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/lint.yml) [![🔨 Build](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/build.yml/badge.svg)](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/build.yml) [![📦 Package](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/package.yml/badge.svg)](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/package.yml) [![👔 Check formatting](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/format.yml/badge.svg)](https://github.com/PWr-Aerospace/ground-control-station/actions/workflows/format.yml)
 <!-- markdownlint-enable MD013 -->
 
-CanSat Ground Control Station
+CanSat Ground Control Station.
 
 Gathers telemetry from the CanSat probe and displays the data to the UI.
 In addition send commands and transfers specified data to the probe.
