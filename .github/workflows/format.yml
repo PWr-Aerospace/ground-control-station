@@ -28,7 +28,7 @@ jobs:
             - name: Check Formatting
               run: cd src-tauri/ ; cargo fmt -- --verbose --check --color auto
             - name: Save dependencies
-              id: cargi-save
+              id: cargo-save
               uses: actions/cache/save@v3
               with:
                 path: |

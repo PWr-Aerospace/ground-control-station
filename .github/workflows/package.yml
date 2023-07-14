@@ -29,6 +29,28 @@ jobs:
               with:
                   toolchain: stable
                   override: true
+            - name: Restore dependencies
+              id: cargo
+              uses: actions/cache/restore@v3
+              with:
+                path: |
+                    ~/.cargo/bin/
+                    ~/.cargo/registry/index/
+                    ~/.cargo/registry/cache/
+                    ~/.cargo/git/db/
+                    src-tauri/target/
+                key: ${{ runner.os }}-cargo-deps-${{ hashFiles('**/Cargo.lock') }}
             - uses: davidB/rust-cargo-make@v1
             - name: Check deps with machete
               run: cd src-tauri/ ; cargo make deps
+            - name: Save dependencies
+              id: cargo-save
+              uses: actions/cache/save@v3
+              with:
+                path: |
+                    ~/.cargo/bin/
+                    ~/.cargo/registry/index/
+                    ~/.cargo/registry/cache/
+                    ~/.cargo/git/db/
+                    src-tauri/target/
+                key: ${{ runner.os }}-cargo-deps-${{ hashFiles('**/Cargo.lock') }}

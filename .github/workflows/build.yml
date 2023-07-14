@@ -40,7 +40,7 @@ jobs:
             - name: Build release
               run: cd src-tauri/ ; cargo build --release
             - name: Save dependencies
-              id: cargi-save
+              id: cargo-save
               uses: actions/cache/save@v3
               with:
                 path: |

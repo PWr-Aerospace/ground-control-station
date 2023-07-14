@@ -41,7 +41,7 @@ jobs:
             - name: Run tests
               run: cd src-tauri/ ; cargo test
             - name: Save dependencies
-              id: cargi-save
+              id: cargo-save
               uses: actions/cache/save@v3
               with:
                 path: |

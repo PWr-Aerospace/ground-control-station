@@ -36,7 +36,7 @@ jobs:
                   set env RUSTFLAGS="-Dwarnings"
                   cd src-tauri/ ; cargo clippy --workspace -- -D warnings
             - name: Save dependencies
-              id: cargi-save
+              id: cargo-save
               uses: actions/cache/save@v3
               with:
                 path: |
