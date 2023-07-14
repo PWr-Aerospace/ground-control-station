@@ -49,4 +49,4 @@ jobs:
                     ~/.cargo/registry/cache/
                     ~/.cargo/git/db/
                     src-tauri/target/
-                key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+                key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
