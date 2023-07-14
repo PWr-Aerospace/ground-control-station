@@ -24,7 +24,7 @@ jobs:
                     ~/.cargo/registry/cache/
                     ~/.cargo/git/db/
                     src-tauri/target/
-                key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+                key: ${{ runner.os }}-cargo-format-${{ hashFiles('**/Cargo.lock') }}
             - name: Check Formatting
               run: cd src-tauri/ ; cargo fmt -- --verbose --check --color auto
             - name: Save dependencies
