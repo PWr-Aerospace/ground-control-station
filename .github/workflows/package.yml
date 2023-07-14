@@ -28,7 +28,7 @@ jobs:
                     ~/.cargo/registry/cache/
                     ~/.cargo/git/db/
                     src-tauri/target/
-                key: ${{ runner.os }}-cargo-package-${{ hashFiles('**/Cargo.lock') }}
+                key: ${{ runner.os }}-cargo-package-${{ hashFiles('Cargo.lock') }}
             - name: Check package integrity
               run: cd src-tauri/ ; cargo package
             - name: Save dependencies
@@ -41,7 +41,7 @@ jobs:
                     ~/.cargo/registry/cache/
                     ~/.cargo/git/db/
                     src-tauri/target/
-                key: ${{ runner.os }}-cargo-package-${{ hashFiles('**/Cargo.lock') }}
+                key: ${{ runner.os }}-cargo-package-${{ hashFiles('Cargo.lock') }}
     check_unused_deps:
         name: 📦 Check for unused dependencies
         runs-on: ubuntu-latest
@@ -64,7 +64,7 @@ jobs:
                 key: ${{ runner.os }}-cargo-deps-${{ hashFiles('**/Cargo.lock') }}
             - uses: davidB/rust-cargo-make@v1
             - name: Check deps with machete
-              run: cd src-tauri/ ; cargo make deps
+              run: cd src-tauri/ ; cargo machete
             - name: Save dependencies
               id: cargo-save
               uses: actions/cache/save@v3
