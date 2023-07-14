@@ -15,7 +15,9 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
-            - uses: actions/cache@v3
+            - name: Restore dependencies
+              id: cargo
+              uses: actions/cache/restore@v3
               with:
                 path: |
                     ~/.cargo/bin/
@@ -33,3 +35,14 @@ jobs:
                   rustup component add clippy
                   set env RUSTFLAGS="-Dwarnings"
                   cd src-tauri/ ; cargo clippy --workspace -- -D warnings
+            - name: Save dependencies
+              id: cargi-save
+              uses: actions/cache/save@v3
+              with:
+                path: |
+                    ~/.cargo/bin/
+                    ~/.cargo/registry/index/
+                    ~/.cargo/registry/cache/
+                    ~/.cargo/git/db/
+                    src-tauri/target/
+                key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
